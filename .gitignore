@@ -1,0 +1,36 @@
+# Laravel
+laravel-backend/.env
+laravel-backend/vendor/
+laravel-backend/storage/logs/*.log
+laravel-backend/bootstrap/cache/*
+laravel-backend/node_modules/
+
+# Flutter
+Applications/*/build/
+Applications/*/.dart_tool/
+Applications/*/.packages
+Applications/*/pubspec.lock
+
+# Admin Panel
+Admin\ Panel\ -\ Landing\ Page/*/vendor/
+Admin\ Panel\ -\ Landing\ Page/*/.env
+
+# General
+.DS_Store
+*.log
+*.tmp
+.vscode/
+.idea/
+
+# Sensitive files
+*.key
+*.pem
+*.p12
+serviceAccountKey.json
+google-services.json
+firebase_options.dart
+
+# Build outputs
+*.apk
+*.ipa
+*.aab
