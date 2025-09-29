@@ -13,7 +13,7 @@
 
                     <div class="row business-analytics_list">
                     <div class="col-md-4">
-                            <div class="card card-box-with-icon bg--15">
+                            <div class="card card-box-with-icon bg--15" onclick="location.href='{!! route('rides') !!}'" style="cursor: pointer;">
                                 <div class="card-body d-flex justify-content-between align-items-center">
                                     <div class="card-box-with-content">
                                         <h4 class="text-dark-2 mb-1 h4" id="total_rides_today">00</h4>
@@ -24,7 +24,7 @@
                             </div>
                         </div>
                     <div class="col-md-4">
-                            <div class="card card-box-with-icon bg--1">
+                            <div class="card card-box-with-icon bg--1" onclick="location.href='{!! route('users.index') !!}'" style="cursor: pointer;">
                                 <div class="card-body d-flex justify-content-between align-items-center">
                                     <div class="card-box-with-content">
                                         <h4 class="text-dark-2 mb-1 h4" id="users_count_today">00</h4>
@@ -35,7 +35,7 @@
                             </div>
                         </div>
                     <div class="col-md-4">
-                            <div class="card card-box-with-icon bg--5">
+                            <div class="card card-box-with-icon bg--5" onclick="location.href='{!! route('drivers') !!}'" style="cursor: pointer;">
                                 <div class="card-body d-flex justify-content-between align-items-center">
                                     <div class="card-box-with-content">
                                         <h4 class="text-dark-2 mb-1 h4" id="driver_count_today">00</h4>
@@ -116,8 +116,8 @@
                     </div>
 
                     <div class="row business-analytics_list">
-                    <div class="col-md-4">
-                            <div class="card card-box-with-icon bg--15">
+                        <div class="col-md-4">
+                            <div class="card card-box-with-icon bg--15" onclick="location.href='{!! route('rides') !!}'" style="cursor: pointer;">
                                 <div class="card-body d-flex justify-content-between align-items-center">
                                     <div class="card-box-with-content">
                                         <h4 class="text-dark-2 mb-1 h4" id="total_rides">00</h4>
@@ -128,7 +128,7 @@
                             </div>
                         </div>
                     <div class="col-md-4">
-                            <div class="card card-box-with-icon bg--1">
+                            <div class="card card-box-with-icon bg--1" onclick="location.href='{!! route('users.index') !!}'" style="cursor: pointer;">
                                 <div class="card-body d-flex justify-content-between align-items-center">
                                     <div class="card-box-with-content">
                                         <h4 class="text-dark-2 mb-1 h4" id="users_count">00</h4>
@@ -139,7 +139,7 @@
                             </div>
                         </div>
                     <div class="col-md-4">
-                            <div class="card card-box-with-icon bg--5">
+                            <div class="card card-box-with-icon bg--5" onclick="location.href='{!! route('drivers') !!}'" style="cursor: pointer;">
                                 <div class="card-body d-flex justify-content-between align-items-center">
                                     <div class="card-box-with-content">
                                         <h4 class="text-dark-2 mb-1 h4" id="driver_count">00</h4>
@@ -151,7 +151,7 @@
                         </div>
 
                     <div class="col-sm-6 col-lg-3 mb-3">
-                            <div class="card-box">
+                            <div class="card-box" onclick="location.href='{!! route('rides') !!}?status=placed'" style="cursor: pointer;">
                                 <h5>{{ trans('lang.dashboard_ride_placed') }}</h5>
                             <h2 id="placed_count">0</h2>
                                 <i class="mdi mdi-check-circle"></i>
@@ -159,7 +159,7 @@
                         </div>
 
                     <div class="col-sm-6 col-lg-3 mb-3">
-                            <div class="card-box">
+                            <div class="card-box" onclick="location.href='{!! route('rides') !!}?status=active'" style="cursor: pointer;">
                                 <h5>{{ trans('lang.dashboard_ride_active') }}</h5>
                             <h2 id="active_count">0</h2>
                                 <i class="mdi mdi-car-connected"></i>
@@ -167,7 +167,7 @@
                         </div>
 
                     <div class="col-sm-6 col-lg-3 mb-3">
-                            <div class="card-box">
+                            <div class="card-box" onclick="location.href='{!! route('rides') !!}?status=completed'" style="cursor: pointer;">
                                 <h5>{{ trans('lang.dashboard_ride_completed') }}</h5>
                             <h2 id="completed_count">0</h2>
                                 <i class="mdi mdi-check-circle-outline"></i>
@@ -175,7 +175,7 @@
                         </div>
 
                     <div class="col-sm-6 col-lg-3 mb-3">
-                            <div class="card-box">
+                            <div class="card-box" onclick="location.href='{!! route('rides') !!}?status=canceled'" style="cursor: pointer;">
                                 <h5>{{ trans('lang.dashboard_ride_canceled') }}</h5>
                             <h2 id="canceled_count">0</h2>
                                 <i class="mdi mdi-window-close"></i>
@@ -408,8 +408,8 @@ function initializeCharts() {
             }
         });
     }
-}
-</script>
+        }
+    </script>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 @endsection
