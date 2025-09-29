@@ -185,6 +185,112 @@
             </div>
         </div>
     </div>
+
+    <!-- Charts and Tables Section -->
+    <div class="row">
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header no-border">
+                    <div class="d-flex justify-content-between">
+                        <h3 class="card-title">{{ trans('lang.dashboard_total_sales') }}</h3>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="position-relative">
+                        <canvas id="sales-chart" height="200"></canvas>
+                    </div>
+                    <div class="d-flex flex-row justify-content-end">
+                        <span class="mr-2"> <i class="fa fa-square" style="color:#80b140"></i>
+                            {{ trans('lang.dashboard_this_year') }} </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header no-border">
+                    <div class="d-flex justify-content-between">
+                        <h3 class="card-title">{{ trans('lang.dashboard_service_overview') }}</h3>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="flex-row">
+                        <canvas id="service-overview" height="222"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header no-border">
+                    <div class="d-flex justify-content-between">
+                        <h3 class="card-title">{{ trans('lang.dashboard_sales_overview') }}</h3>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="flex-row">
+                        <canvas id="sales-overview" height="222"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Rides and Top Drivers Section -->
+    <div class="row daes-sec-sec">
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header no-border d-flex justify-content-between">
+                    <h3 class="card-title">{{ trans('lang.dashboard_recent_rides') }}</h3>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-striped table-valign-middle">
+                        <thead>
+                            <tr>
+                                <th style="text-align:center">{{ trans('lang.order_id') }}</th>
+                                <th>{{ trans('lang.dashboard_user') }}</th>
+                                <th>{{ trans('lang.dashboard_driver') }}</th>
+                                <th>{{ trans('lang.location_details') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="append_list_recent_rides">
+                            <tr>
+                                <td colspan="4" class="text-center">{{ trans('lang.no_data_found') }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header no-border d-flex justify-content-between">
+                    <h3 class="card-title">{{ trans('lang.dashboard_top_drivers') }}</h3>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-striped table-valign-middle">
+                        <thead>
+                            <tr>
+                                <th style="text-align:center">{{ trans('lang.image') }}</th>
+                                <th>{{ trans('lang.driver') }}</th>
+                                <th>{{ trans('lang.rating') }}</th>
+                                <th>{{ trans('lang.actions') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="append_list_top_drivers">
+                            <tr>
+                                <td colspan="4" class="text-center">{{ trans('lang.no_data_found') }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <script type="text/javascript">
@@ -233,8 +339,79 @@ function loadDashboardData() {
         },
         complete: function() {
             jQuery("#overlay").hide();
+            
+            // Initialize charts after data is loaded
+            initializeCharts();
         }
     });
 }
+
+function initializeCharts() {
+    // Initialize sales chart
+    if (document.getElementById('sales-chart')) {
+        const salesCtx = document.getElementById('sales-chart').getContext('2d');
+        new Chart(salesCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                datasets: [{
+                    label: 'Sales',
+                    data: [12, 19, 3, 5, 2, 3],
+                    backgroundColor: '#80b140'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+    }
+
+    // Initialize service overview chart
+    if (document.getElementById('service-overview')) {
+        const serviceCtx = document.getElementById('service-overview').getContext('2d');
+        new Chart(serviceCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Orders', 'Users', 'Drivers'],
+                datasets: [{
+                    data: [
+                        $('#total_rides').text() || 0,
+                        $('#users_count').text() || 0,
+                        $('#driver_count').text() || 0
+                    ],
+                    backgroundColor: ['#218be1', '#5865F2', '#FF0000']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+    }
+
+    // Initialize sales overview chart
+    if (document.getElementById('sales-overview')) {
+        const salesOverviewCtx = document.getElementById('sales-overview').getContext('2d');
+        new Chart(salesOverviewCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Earnings', 'Commission'],
+                datasets: [{
+                    data: [75, 25],
+                    backgroundColor: ['#80b140', '#000000']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+    }
+}
 </script>
+@endsection
+
+@section('scripts')
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 @endsection
