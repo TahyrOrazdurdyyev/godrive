@@ -71,7 +71,7 @@
                     <div class="col-sm-6 col-lg-4 mb-3"></div>
 
                     <div class="col-sm-6 col-lg-3 mb-3">
-                            <div class="card-box">
+                            <div class="card-box" onclick="location.href='{!! route('rides') !!}?status=placed'" style="cursor: pointer;">
                                 <h5>{{ trans('lang.dashboard_ride_placed') }}</h5>
                             <h2 id="placed_count_today">0</h2>
                                 <i class="mdi mdi-check-circle"></i>
@@ -79,7 +79,7 @@
                         </div>
 
                     <div class="col-sm-6 col-lg-3 mb-3">
-                            <div class="card-box">
+                            <div class="card-box" onclick="location.href='{!! route('rides') !!}?status=active'" style="cursor: pointer;">
                                 <h5>{{ trans('lang.dashboard_ride_active') }}</h5>
                             <h2 id="active_count_today">0</h2>
                                 <i class="mdi mdi-car-connected"></i>
@@ -87,7 +87,7 @@
                         </div>
 
                     <div class="col-sm-6 col-lg-3 mb-3">
-                            <div class="card-box">
+                            <div class="card-box" onclick="location.href='{!! route('rides') !!}?status=completed'" style="cursor: pointer;">
                                 <h5>{{ trans('lang.dashboard_ride_completed') }}</h5>
                             <h2 id="completed_count_today">0</h2>
                                 <i class="mdi mdi-check-circle-outline"></i>
@@ -95,7 +95,7 @@
                         </div>
 
                     <div class="col-sm-6 col-lg-3 mb-3">
-                            <div class="card-box">
+                            <div class="card-box" onclick="location.href='{!! route('rides') !!}?status=canceled'" style="cursor: pointer;">
                                 <h5>{{ trans('lang.dashboard_ride_canceled') }}</h5>
                             <h2 id="canceled_count_today">0</h2>
                                 <i class="mdi mdi-window-close"></i>
