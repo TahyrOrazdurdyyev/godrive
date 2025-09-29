@@ -19,34 +19,20 @@ class PermissionMiddleware
      */
     public function handle($request, Closure $next, $permission = null, $routes = null)
     {
-
         if (!auth()->check()) {
-            // User is not authenticated, redirect to login or handle as needed.
             return redirect()->route('login');
         }
 
         $user = auth()->user();
-        $role_has_permissions = Permission::where('role_id', $user->role_id)->pluck('permission')->toArray();
-
-        $role_has_permissions = array_unique($role_has_permissions);
         
-        if (in_array($permission, $role_has_permissions)) {
-
-            $permission_has_routes = Permission::where('role_id', $user->role_id)->where('permission', $permission)->pluck('routes')->toArray();
-            
-            if ($routes == null) {
-                return $next($request);
-            } else if (in_array($routes, $permission_has_routes)) {
-                return $next($request);
-            } else {
-                abort(403, 'unauthorized access');
-            }
-
-        } else {
-            abort(403, 'unauthorized access');
-
+        // Получаем названия разрешений пользователя
+        $user_permissions = Permission::where('role_id', $user->role_id)->pluck('name')->toArray();
+        
+        // Если у пользователя есть all-access или нужное разрешение - пропускаем
+        if (in_array('all-access', $user_permissions) || in_array($permission, $user_permissions)) {
+            return $next($request);
         }
 
-        return $next($request);
+        abort(403, 'unauthorized access');
     }
 }
