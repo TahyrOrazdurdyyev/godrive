@@ -1,4 +1,6 @@
 @extends('layouts.app')
+
+
 @section('content')
 <div id="main-wrapper" class="page-wrapper">
         <div class="container-fluid">
@@ -295,9 +297,38 @@
 
     <script type="text/javascript">
 $(document).ready(function() {
-        jQuery("#overlay").show();
-    loadDashboardData();
+    jQuery("#overlay").show();
+    
+    var currentCurrency = '$';
+    var currencyAtRight = false;
+    var decimal_degits = 2;
+
+    // Load Chart.js first, then load dashboard data
+    loadChartJS().then(() => {
+        loadDashboardData();
+    });
 });
+
+function loadChartJS() {
+    return new Promise((resolve, reject) => {
+        if (typeof Chart !== 'undefined') {
+            resolve();
+            return;
+        }
+        
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js';
+        script.onload = () => {
+            console.log('Chart.js loaded successfully');
+            resolve();
+        };
+        script.onerror = () => {
+            console.error('Failed to load Chart.js');
+            reject();
+        };
+        document.head.appendChild(script);
+    });
+}
 
 function loadDashboardData() {
     $.ajax({
@@ -346,70 +377,74 @@ function loadDashboardData() {
     });
 }
 
-function initializeCharts() {
-    // Initialize sales chart
-    if (document.getElementById('sales-chart')) {
-        const salesCtx = document.getElementById('sales-chart').getContext('2d');
-        new Chart(salesCtx, {
-                type: 'bar',
-                data: {
-                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-                    datasets: [{
-                    label: 'Sales',
-                    data: [12, 19, 3, 5, 2, 3],
-                    backgroundColor: '#80b140'
-                }]
-                },
-                options: {
-                responsive: true,
-                maintainAspectRatio: false
+        function initializeCharts() {
+            // Check if Chart.js is loaded
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js is not loaded');
+                return;
             }
-        });
-    }
 
-    // Initialize service overview chart
-    if (document.getElementById('service-overview')) {
-        const serviceCtx = document.getElementById('service-overview').getContext('2d');
-        new Chart(serviceCtx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Orders', 'Users', 'Drivers'],
-                datasets: [{
-                    data: [
-                        $('#total_rides').text() || 0,
-                        $('#users_count').text() || 0,
-                        $('#driver_count').text() || 0
-                    ],
-                    backgroundColor: ['#218be1', '#5865F2', '#FF0000']
-                }]
-            },
-                options: {
-                responsive: true,
-                maintainAspectRatio: false
-                }
-            });
-        }
-
-    // Initialize sales overview chart
-    if (document.getElementById('sales-overview')) {
-        const salesOverviewCtx = document.getElementById('sales-overview').getContext('2d');
-        new Chart(salesOverviewCtx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Earnings', 'Commission'],
-                datasets: [{
-                    data: [75, 25],
-                    backgroundColor: ['#80b140', '#000000']
-                }]
-            },
-                options: {
-                responsive: true,
-                maintainAspectRatio: false
+            // Initialize sales chart
+            if (document.getElementById('sales-chart')) {
+                const salesCtx = document.getElementById('sales-chart').getContext('2d');
+                new Chart(salesCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                        datasets: [{
+                            label: 'Sales',
+                            data: [12, 19, 3, 5, 2, 3],
+                            backgroundColor: '#80b140'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false
+                    }
+                });
             }
-        });
-    }
+
+            // Initialize service overview chart
+            if (document.getElementById('service-overview')) {
+                const serviceCtx = document.getElementById('service-overview').getContext('2d');
+                new Chart(serviceCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Orders', 'Users', 'Drivers'],
+                        datasets: [{
+                            data: [
+                                $('#total_rides').text() || 0,
+                                $('#users_count').text() || 0,
+                                $('#driver_count').text() || 0
+                            ],
+                            backgroundColor: ['#218be1', '#5865F2', '#FF0000']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false
+                    }
+                });
+            }
+
+            // Initialize sales overview chart
+            if (document.getElementById('sales-overview')) {
+                const salesOverviewCtx = document.getElementById('sales-overview').getContext('2d');
+                new Chart(salesOverviewCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Earnings', 'Commission'],
+                        datasets: [{
+                            data: [75, 25],
+                            backgroundColor: ['#80b140', '#000000']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false
+                    }
+                });
+            }
         }
     </script>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 @endsection
