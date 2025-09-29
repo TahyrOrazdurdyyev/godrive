@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\DB;
 
 /*
    |--------------------------------------------------------------------------
@@ -438,3 +439,27 @@ Route::get('payment/pending', [App\Http\Controllers\PaymentController::class, 'p
 
 Route::post('store-firebase-service', [App\Providers\FirebaseAuthService::class,'storeFirebaseService'])->name('store-firebase-service');
 Route::post('get-firebase-token', [App\Providers\FirebaseAuthService::class,'getFirebaseToken']);
+
+// Test route for checking database connection
+Route::get('/test-stats', function() {
+    try {
+        $mainDb = DB::connection('mysql_main');
+        $users = $mainDb->table('users')->count();
+        $orders = $mainDb->table('orders')->count();
+        $drivers = $mainDb->table('drivers')->count();
+        
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'users' => $users,
+                'orders' => $orders,
+                'drivers' => $drivers
+            ]
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'error' => $e->getMessage()
+        ]);
+    }
+})->middleware('auth');
