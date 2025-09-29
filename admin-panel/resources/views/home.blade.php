@@ -296,16 +296,27 @@
         </div>
 
     <script type="text/javascript">
-$(document).ready(function() {
-    jQuery("#overlay").show();
-    
-    var currentCurrency = '$';
-    var currencyAtRight = false;
-    var decimal_degits = 2;
+// Wait for jQuery to be available
+function waitForJQuery(callback) {
+    if (typeof jQuery !== 'undefined') {
+        callback();
+    } else {
+        setTimeout(() => waitForJQuery(callback), 100);
+    }
+}
 
-    // Load Chart.js first, then load dashboard data
-    loadChartJS().then(() => {
-        loadDashboardData();
+waitForJQuery(function() {
+    jQuery(document).ready(function() {
+        jQuery("#overlay").show();
+        
+        var currentCurrency = '$';
+        var currencyAtRight = false;
+        var decimal_degits = 2;
+
+        // Load Chart.js first, then load dashboard data
+        loadChartJS().then(() => {
+            loadDashboardData();
+        });
     });
 });
 
@@ -331,38 +342,38 @@ function loadChartJS() {
 }
 
 function loadDashboardData() {
-    $.ajax({
+    jQuery.ajax({
         url: '/api/admin/stats/dashboard',
         method: 'GET',
         headers: {
-            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            'X-CSRF-TOKEN': jQuery('meta[name="csrf-token"]').attr('content')
         },
         success: function(response) {
             if(response.success) {
                 var data = response.data;
                 
                 // Обновляем счетчики TODAY
-                $('#total_rides_today').text(data.today.total_rides || 0);
-                $('#users_count_today').text(data.today.total_users || 0);
-                $('#driver_count_today').text(data.today.total_drivers || 0);
+                jQuery('#total_rides_today').text(data.today.total_rides || 0);
+                jQuery('#users_count_today').text(data.today.total_users || 0);
+                jQuery('#driver_count_today').text(data.today.total_drivers || 0);
                 
                 // Обновляем счетчики TOTAL
-                $('#total_rides').text(data.total.total_rides || 0);
-                $('#users_count').text(data.total.total_users || 0);
-                $('#driver_count').text(data.total.total_drivers || 0);
+                jQuery('#total_rides').text(data.total.total_rides || 0);
+                jQuery('#users_count').text(data.total.total_users || 0);
+                jQuery('#driver_count').text(data.total.total_drivers || 0);
                 
                 // Устанавливаем остальные в 0 пока нет данных
-                $('#earnings_count_today').text('$0');
-                $('#admincommission_count_today').text('$0');
-                $('#placed_count_today').text('0');
-                $('#active_count_today').text('0');
-                $('#completed_count_today').text('0');
-                $('#canceled_count_today').text('0');
+                jQuery('#earnings_count_today').text('$0');
+                jQuery('#admincommission_count_today').text('$0');
+                jQuery('#placed_count_today').text('0');
+                jQuery('#active_count_today').text('0');
+                jQuery('#completed_count_today').text('0');
+                jQuery('#canceled_count_today').text('0');
                 
-                $('#placed_count').text('0');
-                $('#active_count').text('0');
-                $('#completed_count').text('0');
-                $('#canceled_count').text('0');
+                jQuery('#placed_count').text('0');
+                jQuery('#active_count').text('0');
+                jQuery('#completed_count').text('0');
+                jQuery('#canceled_count').text('0');
             }
         },
         error: function() {
@@ -413,9 +424,9 @@ function loadDashboardData() {
                         labels: ['Orders', 'Users', 'Drivers'],
                         datasets: [{
                             data: [
-                                $('#total_rides').text() || 0,
-                                $('#users_count').text() || 0,
-                                $('#driver_count').text() || 0
+                                jQuery('#total_rides').text() || 0,
+                                jQuery('#users_count').text() || 0,
+                                jQuery('#driver_count').text() || 0
                             ],
                             backgroundColor: ['#218be1', '#5865F2', '#FF0000']
                         }]
