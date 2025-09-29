@@ -44,4 +44,24 @@ class Preferences {
   static Future<void> clearKeyData(String key) async {
     await pref.remove(key);
   }
+
+  // Token management for Laravel API
+  static const String tokenKey = "api_token";
+  
+  static Future<void> setToken(String token) async {
+    await pref.setString(tokenKey, token);
+  }
+
+  static String? getToken() {
+    return pref.getString(tokenKey);
+  }
+
+  static Future<void> clearToken() async {
+    await pref.remove(tokenKey);
+  }
+
+  static bool hasToken() {
+    final token = getToken();
+    return token != null && token.isNotEmpty;
+  }
 }
