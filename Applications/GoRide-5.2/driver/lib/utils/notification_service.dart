@@ -10,6 +10,10 @@ import 'package:driver/ui/home_screens/order_map_screen.dart';
 import 'package:driver/ui/order_intercity_screen/complete_intecity_order_screen.dart';
 import 'package:driver/ui/order_screen/complete_order_screen.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/order_api.dart';
+import 'package:driver/utils/intercity_order_api.dart';
+import 'package:driver/utils/customer_api.dart';
+import 'package:driver/utils/driver_api.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
@@ -75,18 +79,50 @@ class NotificationService {
         if (message.data['type'] == "city_order") {
           Get.to(const OrderMapScreen(), arguments: {"orderModel": message.data['orderId']});
         } else if (message.data['type'] == "city_order_payment_complete") {
-          OrderModel? orderModel = await FireStoreUtils.getOrder(message.data['orderId']);
+          // Get order from API
+          OrderModel? orderModel;
+          try {
+            final response = await OrderApi.getOrderById(int.parse(message.data['orderId']));
+            if (response['success'] == true && response['order'] != null) {
+              orderModel = OrderModel.fromJson(response['order']);
+            }
+          } catch (e) {
+            log('❌ Error getting order: $e');
+          }
           Get.to(const CompleteOrderScreen(), arguments: {
             "orderModel": orderModel,
           });
         } else if (message.data['type'] == "intercity_order_payment_complete") {
-          InterCityOrderModel? orderModel = await FireStoreUtils.getInterCityOrder(message.data['orderId']);
+          // Get intercity order from API
+          InterCityOrderModel? orderModel;
+          try {
+            final response = await InterCityOrderApi.getById(int.parse(message.data['orderId']));
+            if (response['success'] == true && response['order'] != null) {
+              orderModel = InterCityOrderModel.fromJson(response['order']);
+            }
+          } catch (e) {
+            log('❌ Error getting intercity order: $e');
+          }
           Get.to(const CompleteIntercityOrderScreen(), arguments: {
             "orderModel": orderModel,
           });
         } else if (message.data['type'] == "chat") {
-          UserModel? customer = await FireStoreUtils.getCustomer(message.data['customerId']);
-          DriverUserModel? driver = await FireStoreUtils.getDriverProfile(message.data['driverId']);
+          // Get customer and driver from API
+          UserModel? customer;
+          DriverUserModel? driver;
+          try {
+            final customerResponse = await CustomerApi.getCustomerProfile(message.data['customerId']);
+            if (customerResponse['success'] == true && customerResponse['customer'] != null) {
+              customer = UserModel.fromJson(customerResponse['customer']);
+            }
+            
+            final driverResponse = await DriverApi.getProfile(message.data['driverId']);
+            if (driverResponse['success'] == true && driverResponse['driver'] != null) {
+              driver = DriverUserModel.fromJson(driverResponse['driver']);
+            }
+          } catch (e) {
+            log('❌ Error getting user data: $e');
+          }
 
           Get.to(ChatScreens(
             driverId: driver!.id,

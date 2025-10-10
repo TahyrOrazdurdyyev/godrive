@@ -9,6 +9,7 @@ import 'package:customer/themes/responsive.dart';
 import 'package:customer/utils/DarkThemeProvider.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/utils/fire_store_utils.dart';
+import 'package:customer/utils/faq_api.dart';
 // Google Fonts replaced with local fonts
 import 'package:flutter/material.dart';
 // Google Fonts replaced with local fonts
@@ -17,6 +18,22 @@ import 'package:get/get.dart';
 
 import 'package:provider/provider.dart';
 // Google Fonts replaced with local fonts
+import 'dart:developer';
+
+/// Helper function to get FAQs from API
+Future<List<FaqModel>?> _getFaqs() async {
+  try {
+    final response = await FaqApi.getAllFaqs();
+    if (response['success'] == true && response['faqs'] != null) {
+      return (response['faqs'] as List)
+          .map((json) => FaqModel.fromJson(json))
+          .toList();
+    }
+  } catch (e) {
+    log('❌ Error loading FAQs: $e');
+  }
+  return null;
+}
 
 class FaqScreen extends StatelessWidget {
   const FaqScreen({super.key});
@@ -50,7 +67,7 @@ class FaqScreen extends StatelessWidget {
                       ),
                       Expanded(
                         child: FutureBuilder<List<FaqModel>?>(
-                            future: FireStoreUtils.getFaq(),
+                            future: _getFaqs(),
                             builder: (context, snapshot) {
                               switch (snapshot.connectionState) {
                                 case ConnectionState.waiting:

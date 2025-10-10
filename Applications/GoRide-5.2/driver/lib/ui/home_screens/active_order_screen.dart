@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:driver/constant/collection_name.dart';
 import 'package:driver/constant/constant.dart';
@@ -13,6 +14,9 @@ import 'package:driver/ui/chat_screen/chat_screen.dart';
 import 'package:driver/ui/home_screens/live_tracking_screen.dart';
 import 'package:driver/utils/DarkThemeProvider.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/customer_api.dart';
+import 'package:driver/utils/driver_api.dart';
+import 'package:driver/utils/order_api.dart';
 import 'package:driver/utils/utils.dart';
 import 'package:driver/widget/location_view.dart';
 import 'package:driver/widget/user_view.dart';
@@ -128,28 +132,36 @@ class ActiveOrderScreen extends StatelessWidget {
                                                   btnHeight: 44,
                                                   iconVisibility: false,
                                                   onPress: () async {
-                                                    orderModel.status = Constant.rideComplete;
-
-                                                    await FireStoreUtils.getCustomer(orderModel.userId.toString()).then((value) async {
-                                                      if (value != null) {
-                                                        if (value.fcmToken != null) {
+                                                    try {
+                                                      // Get customer info for notification
+                                                      final customerResponse = await CustomerApi.getCustomerProfile(orderModel.userId.toString());
+                                                      if (customerResponse['success'] == true && customerResponse['customer'] != null) {
+                                                        final customer = UserModel.fromJson(customerResponse['customer']);
+                                                        
+                                                        if (customer.fcmToken != null) {
                                                           Map<String, dynamic> playLoad = <String, dynamic>{"type": "city_order_complete", "orderId": orderModel.id};
 
                                                           await SendNotification.sendOneNotification(
-                                                              token: value.fcmToken.toString(),
+                                                              token: customer.fcmToken.toString(),
                                                               title: 'Ride complete!'.tr,
                                                               body: 'Please complete your payment.'.tr,
                                                               payload: playLoad);
                                                         }
                                                       }
-                                                    });
 
-                                                    await FireStoreUtils.setOrder(orderModel).then((value) {
-                                                      if (value == true) {
-                                                        ShowToastDialog.showToast("Ride Complete successfully".tr);
-                                                        controller.homeController.selectedIndex.value = 3;
-                                                      }
-                                                    });
+                                                      // Update order status
+                                                      await OrderApi.updateOrder(
+                                                        orderId: int.parse(orderModel.id!),
+                                                        data: {'status': Constant.rideComplete},
+                                                      );
+
+                                                      ShowToastDialog.showToast("Ride Complete successfully".tr);
+                                                      controller.homeController.selectedIndex.value = 3;
+                                                      
+                                                    } catch (e) {
+                                                      log('❌ Complete ride error: $e');
+                                                      ShowToastDialog.showToast("Failed to complete ride".tr);
+                                                    }
                                                   },
                                                 )
                                               : orderModel.status == Constant.rideHold || orderModel.status == Constant.rideHoldAccepted
@@ -171,19 +183,28 @@ class ActiveOrderScreen extends StatelessWidget {
                                           children: [
                                             InkWell(
                                               onTap: () async {
-                                                UserModel? customer = await FireStoreUtils.getCustomer(orderModel.userId.toString());
-                                                DriverUserModel? driver = await FireStoreUtils.getDriverProfile(orderModel.driverId.toString());
+                                                try {
+                                                  final customerResponse = await CustomerApi.getCustomerProfile(orderModel.userId.toString());
+                                                  final driverResponse = await DriverApi.getProfile(orderModel.driverId.toString());
+                                                  
+                                                  if (customerResponse['success'] == true && driverResponse['success'] == true) {
+                                                    final customer = UserModel.fromJson(customerResponse['customer']);
+                                                    final driver = DriverUserModel.fromJson(driverResponse['driver']);
 
-                                                Get.to(ChatScreens(
-                                                  driverId: driver!.id,
-                                                  customerId: customer!.id,
-                                                  customerName: customer.fullName,
-                                                  customerProfileImage: customer.profilePic,
-                                                  driverName: driver.fullName,
-                                                  driverProfileImage: driver.profilePic,
-                                                  orderId: orderModel.id,
-                                                  token: customer.fcmToken,
-                                                ));
+                                                    Get.to(ChatScreens(
+                                                      driverId: driver.id,
+                                                      customerId: customer.id,
+                                                      customerName: customer.fullName,
+                                                      customerProfileImage: customer.profilePic,
+                                                      driverName: driver.fullName,
+                                                      driverProfileImage: driver.profilePic,
+                                                      orderId: orderModel.id,
+                                                      token: customer.fcmToken,
+                                                    ));
+                                                  }
+                                                } catch (e) {
+                                                  log('❌ Chat error: $e');
+                                                }
                                               },
                                               child: Container(
                                                 height: 44,
@@ -198,8 +219,15 @@ class ActiveOrderScreen extends StatelessWidget {
                                             ),
                                             InkWell(
                                               onTap: () async {
-                                                UserModel? customer = await FireStoreUtils.getCustomer(orderModel.userId.toString());
-                                                Constant.makePhoneCall("${customer!.countryCode}${customer.phoneNumber}");
+                                                try {
+                                                  final customerResponse = await CustomerApi.getCustomerProfile(orderModel.userId.toString());
+                                                  if (customerResponse['success'] == true && customerResponse['customer'] != null) {
+                                                    final customer = UserModel.fromJson(customerResponse['customer']);
+                                                    Constant.makePhoneCall("${customer.countryCode}${customer.phoneNumber}");
+                                                  }
+                                                } catch (e) {
+                                                  log('❌ Call error: $e');
+                                                }
                                               },
                                               child: Container(
                                                 height: 44,
@@ -233,14 +261,19 @@ class ActiveOrderScreen extends StatelessWidget {
                                                   iconVisibility: false,
                                                   onPress: () async {
                                                     ShowToastDialog.showLoader("Please wait...".tr);
-                                                    orderModel.status = Constant.rideInProgress;
-
-                                                    await FireStoreUtils.setOrder(orderModel).then((value) {
-                                                      if (value == true) {
-                                                        ShowToastDialog.closeLoader();
-                                                        ShowToastDialog.showToast("Ride hold request has been rejected.".tr);
-                                                      }
-                                                    });
+                                                    
+                                                    try {
+                                                      await OrderApi.updateOrder(
+                                                        orderId: int.parse(orderModel.id!),
+                                                        data: {'status': Constant.rideInProgress},
+                                                      );
+                                                      
+                                                      ShowToastDialog.closeLoader();
+                                                      ShowToastDialog.showToast("Ride hold request has been rejected.".tr);
+                                                    } catch (e) {
+                                                      ShowToastDialog.closeLoader();
+                                                      log('❌ Reject hold error: $e');
+                                                    }
                                                   },
                                                 ),
                                               ),
@@ -254,24 +287,36 @@ class ActiveOrderScreen extends StatelessWidget {
                                                   btnHeight: 45,
                                                   onPress: () async {
                                                     ShowToastDialog.showLoader("Please wait...".tr);
-                                                    orderModel.status = Constant.rideHoldAccepted;
-                                                    orderModel.acceptHoldTime = Timestamp.now();
+                                                    
+                                                    try {
+                                                      // Update order status
+                                                      await OrderApi.updateOrder(
+                                                        orderId: int.parse(orderModel.id!),
+                                                        data: {
+                                                          'status': Constant.rideHoldAccepted,
+                                                          'accept_hold_time': Timestamp.now().toDate().toIso8601String(),
+                                                        },
+                                                      );
 
-                                                    await FireStoreUtils.setOrder(orderModel).then((value) {
-                                                      if (value == true) {
-                                                        ShowToastDialog.closeLoader();
-                                                        ShowToastDialog.showToast("Ride has been put on hold.".tr);
+                                                      // Send notification to customer
+                                                      final customerResponse = await CustomerApi.getCustomerProfile(orderModel.userId.toString());
+                                                      if (customerResponse['success'] == true && customerResponse['customer'] != null) {
+                                                        final customer = UserModel.fromJson(customerResponse['customer']);
+                                                        if (customer.fcmToken != null) {
+                                                          await SendNotification.sendOneNotification(
+                                                              token: customer.fcmToken.toString(),
+                                                              title: 'Ride Hold Accepted'.tr,
+                                                              body: 'Driver has accepted your ride hold request'.tr,
+                                                              payload: {});
+                                                        }
                                                       }
-                                                    });
-                                                    await FireStoreUtils.getCustomer(orderModel.userId.toString()).then((value) async {
-                                                      if (value != null) {
-                                                        await SendNotification.sendOneNotification(
-                                                            token: value.fcmToken.toString(),
-                                                            title: 'Ride Hold Accepted'.tr,
-                                                            body: 'Driver has accepted your ride hold request'.tr,
-                                                            payload: {});
-                                                      }
-                                                    });
+
+                                                      ShowToastDialog.closeLoader();
+                                                      ShowToastDialog.showToast("Ride has been put on hold.".tr);
+                                                    } catch (e) {
+                                                      ShowToastDialog.closeLoader();
+                                                      log('❌ Accept hold error: $e');
+                                                    }
                                                   },
                                                 ),
                                               )
@@ -301,22 +346,36 @@ class ActiveOrderScreen extends StatelessWidget {
                                               if (extraTime > 0 || rideHoldTimeInSeconds % 60 > 0) {
                                                 totalHoldingCharges += chargePerInterval;
                                               }
-                                              orderModel.acceptHoldTime = null;
-                                              orderModel.rideHoldTimeMinutes = rideHoldTimeInMinutes.toString();
-                                              orderModel.totalHoldingCharges = totalHoldingCharges.toString();
+                                              try {
+                                                // Update order with hold time data
+                                                await OrderApi.updateOrder(
+                                                  orderId: int.parse(orderModel.id!),
+                                                  data: {
+                                                    'accept_hold_time': null,
+                                                    'ride_hold_time_minutes': rideHoldTimeInMinutes.toString(),
+                                                    'total_holding_charges': totalHoldingCharges.toString(),
+                                                  },
+                                                );
 
-                                              await FireStoreUtils.setOrder(orderModel).then((value) {
-                                                if (value == true) {
-                                                  ShowToastDialog.closeLoader();
-                                                  ShowToastDialog.showToast("Ride hold has ended".tr);
+                                                // Send notification to customer
+                                                final customerResponse = await CustomerApi.getCustomerProfile(orderModel.userId.toString());
+                                                if (customerResponse['success'] == true && customerResponse['customer'] != null) {
+                                                  final customer = UserModel.fromJson(customerResponse['customer']);
+                                                  if (customer.fcmToken != null) {
+                                                    await SendNotification.sendOneNotification(
+                                                        token: customer.fcmToken.toString(), 
+                                                        title: 'Ride Hold Ended'.tr, 
+                                                        body: 'Driver has ended the ride hold.'.tr, 
+                                                        payload: {});
+                                                  }
                                                 }
-                                              });
-                                              await FireStoreUtils.getCustomer(orderModel.userId.toString()).then((value) async {
-                                                if (value != null) {
-                                                  await SendNotification.sendOneNotification(
-                                                      token: value.fcmToken.toString(), title: 'Ride Hold Ended'.tr, body: 'Driver has ended the ride hold.'.tr, payload: {});
-                                                }
-                                              });
+
+                                                ShowToastDialog.closeLoader();
+                                                ShowToastDialog.showToast("Ride hold has ended".tr);
+                                              } catch (e) {
+                                                ShowToastDialog.closeLoader();
+                                                log('❌ End hold error: $e');
+                                              }
                                             },
                                           )
                                         : SizedBox.shrink(),
@@ -380,24 +439,34 @@ class ActiveOrderScreen extends StatelessWidget {
               if (orderModel.otp.toString() == controller.otpController.value.text) {
                 Get.back();
                 ShowToastDialog.showLoader("Please wait...".tr);
-                orderModel.status = Constant.rideInProgress;
 
-                await FireStoreUtils.getCustomer(orderModel.userId.toString()).then((value) async {
-                  if (value != null) {
-                    await SendNotification.sendOneNotification(
-                        token: value.fcmToken.toString(),
-                        title: 'Ride Started'.tr,
-                        body: 'The ride has officially started. Please follow the designated route to the destination.'.tr,
-                        payload: {});
+                try {
+                  // Send notification to customer
+                  final customerResponse = await CustomerApi.getCustomerProfile(orderModel.userId.toString());
+                  if (customerResponse['success'] == true && customerResponse['customer'] != null) {
+                    final customer = UserModel.fromJson(customerResponse['customer']);
+                    if (customer.fcmToken != null) {
+                      await SendNotification.sendOneNotification(
+                          token: customer.fcmToken.toString(),
+                          title: 'Ride Started'.tr,
+                          body: 'The ride has officially started. Please follow the designated route to the destination.'.tr,
+                          payload: {});
+                    }
                   }
-                });
 
-                await FireStoreUtils.setOrder(orderModel).then((value) {
-                  if (value == true) {
-                    ShowToastDialog.closeLoader();
-                    ShowToastDialog.showToast("Customer pickup successfully".tr);
-                  }
-                });
+                  // Update order status
+                  await OrderApi.updateOrder(
+                    orderId: int.parse(orderModel.id!),
+                    data: {'status': Constant.rideInProgress},
+                  );
+
+                  ShowToastDialog.closeLoader();
+                  ShowToastDialog.showToast("Customer pickup successfully".tr);
+                } catch (e) {
+                  ShowToastDialog.closeLoader();
+                  log('❌ Start ride error: $e');
+                  ShowToastDialog.showToast("Failed to start ride".tr);
+                }
               } else {
                 ShowToastDialog.showToast(
                   "OTP Invalid".tr,

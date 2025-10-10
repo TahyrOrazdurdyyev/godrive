@@ -10,6 +10,8 @@ import 'package:customer/model/payment_model.dart';
 import 'package:customer/model/stripe_failed_model.dart';
 import 'package:customer/model/user_model.dart';
 import 'package:customer/model/wallet_transaction_model.dart';
+import 'package:customer/services/laravel_service.dart';
+import 'package:customer/utils/Preferences.dart';
 import 'package:customer/payment/MercadoPagoScreen.dart';
 import 'package:customer/payment/PayFastScreen.dart';
 import 'package:customer/payment/getPaytmTxtToken.dart';
@@ -22,6 +24,8 @@ import 'package:customer/payment/xenditModel.dart';
 import 'package:customer/payment/xenditScreen.dart';
 import 'package:customer/themes/app_colors.dart';
 import 'package:customer/utils/fire_store_utils.dart';
+import 'package:customer/utils/wallet_api.dart';
+import 'package:customer/utils/user_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_paypal/flutter_paypal.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
@@ -71,69 +75,55 @@ class WalletController extends GetxController {
   }
 
   getUser() async {
-    // DEMO: Create static user model with demo wallet amount
-    userModel.value = UserModel(
-      id: "demo_user_123",
-      fullName: "John Demo",
-      email: "demo@goride.com",
-      phoneNumber: "+1234567890",
-      walletAmount: "150.00", // Demo wallet balance
-      profilePic: ""
-    );
+    try {
+      // Load user data from preferences
+      String? userJson = Preferences.getString(Preferences.user);
+      if (userJson != null && userJson.isNotEmpty) {
+        Map<String, dynamic> userData = json.decode(userJson);
+        userModel.value = UserModel.fromJson(userData);
+      } else {
+        userModel.value = UserModel();
+      }
+    } catch (e) {
+      debugPrint("Error loading user data: $e");
+      userModel.value = UserModel();
+    }
   }
 
   getTraction() async {
-    // DEMO: Create static transaction list
-    transactionList.value = [
-      WalletTransactionModel(
-        id: "txn_001",
-        amount: "25.00",
-        paymentType: "credit",
-        createdDate: Timestamp.fromDate(DateTime.now().subtract(Duration(days: 1))),
-        note: "Wallet Top Up",
-        userId: "demo_user_123",
-        transactionId: "TXN_001",
-      ),
-      WalletTransactionModel(
-        id: "txn_002", 
-        amount: "12.50",
-        paymentType: "debit",
-        createdDate: Timestamp.fromDate(DateTime.now().subtract(Duration(days: 2))),
-        note: "Ride Payment",
-        userId: "demo_user_123",
-        transactionId: "TXN_002",
-      ),
-      WalletTransactionModel(
-        id: "txn_003",
-        amount: "50.00", 
-        paymentType: "credit",
-        createdDate: Timestamp.fromDate(DateTime.now().subtract(Duration(days: 5))),
-        note: "Referral Bonus",
-        userId: "demo_user_123",
-        transactionId: "TXN_003",
-      ),
-    ];
+    try {
+      // Load wallet transactions from Laravel API
+      List<WalletTransactionModel> transactions = await LaravelService.getWalletTransactions();
+      transactionList.value = transactions;
+    } catch (e) {
+      debugPrint("Error loading wallet transactions: $e");
+      transactionList.value = [];
+    }
   }
 
   walletTopUp() async {
-    WalletTransactionModel transactionModel = WalletTransactionModel(
-        id: Constant.getUuid(),
-        amount: amountController.value.text,
-        createdDate: Timestamp.now(),
-        paymentType: selectedPaymentMethod.value,
-        transactionId: DateTime.now().millisecondsSinceEpoch.toString(),
-        userId: FireStoreUtils.getCurrentUid(),
-        userType: "customer",
-        note: "Wallet Topup");
-
-    await FireStoreUtils.setWalletTransaction(transactionModel).then((value) async {
-      if (value == true) {
-        await FireStoreUtils.updateUserWallet(amount: amountController.value.text).then((value) {
-          getUser();
-          getTraction();
-        });
+    try {
+      // Get user from API
+      final uid = FireStoreUtils.getCurrentUid();
+      final userResponse = await UserApi.getProfile(uid);
+      
+      if (userResponse['success'] == true && userResponse['user'] != null) {
+        final userId = userResponse['user']['id'];
+        
+        // Add money via API
+        await WalletApi.addMoney(
+          userId: userId,
+          amount: double.parse(amountController.value.text),
+          paymentType: selectedPaymentMethod.value,
+          note: "Wallet Topup",
+        );
+        
+        getUser();
+        getTraction();
       }
-    });
+    } catch (e) {
+      log('❌ Wallet top up error: $e');
+    }
 
     ShowToastDialog.showToast("Amount added in your wallet.");
   }

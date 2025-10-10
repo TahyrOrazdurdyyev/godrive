@@ -57,7 +57,11 @@
 
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="YOUR_API_KEY_HERE" />
+            android:value="AIzaSyD28jAxG6GA3qY431-bf9pB0eqcTPF6tMY" />
+
+        <meta-data
+            android:name="com.yandex.mapkit.ApiKey"
+            android:value="d59c5fa5-09a4-4712-9f27-980539e08a21" />
 
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"

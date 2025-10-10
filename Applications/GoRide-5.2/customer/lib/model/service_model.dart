@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:customer/model/admin_commission.dart';
 import 'package:customer/model/language_title.dart';
 
@@ -46,29 +47,63 @@ class ServiceModel {
   ServiceModel.fromJson(Map<String, dynamic> json) {
     image = json['image'];
     enable = json['enable'];
-    offerRate = json['offerRate'];
-    id = json['id'];
-    acCharge = json['acCharge'];
-    nonAcCharge = json['nonAcCharge'];
-    basicFare = json['basicFare'];
-    basicFareCharge = json['basicFareCharge'];
-    holdingMinute = json['holdingMinute'];
-    holdingMinuteCharge = json['holdingMinuteCharge'];
-    endNightTime = json['endNightTime'];
-    startNightTime = json['startNightTime'];
-    nightCharge = json['nightCharge'];
-    perMinuteCharge = json['perMinuteCharge'];
-    kmCharge = json['kmCharge'];
-    intercityType = json['intercityType'];
-    isAcNonAc = json['isAcNonAc'];
+    offerRate = json['offerRate'] ?? json['offer_rate'];
+    // Convert int/decimal to String for compatibility
+    id = json['id']?.toString();
+    acCharge = json['acCharge']?.toString() ?? json['ac_charge']?.toString();
+    nonAcCharge = json['nonAcCharge']?.toString() ?? json['non_ac_charge']?.toString();
+    basicFare = json['basicFare']?.toString() ?? json['basic_fare']?.toString();
+    basicFareCharge = json['basicFareCharge']?.toString() ?? json['basic_fare_charge']?.toString();
+    holdingMinute = json['holdingMinute']?.toString() ?? json['holding_minute']?.toString();
+    holdingMinuteCharge = json['holdingMinuteCharge']?.toString() ?? json['holding_minute_charge']?.toString();
+    endNightTime = json['endNightTime'] ?? json['end_night_time'];
+    startNightTime = json['startNightTime'] ?? json['start_night_time'];
+    nightCharge = json['nightCharge']?.toString() ?? json['night_charge']?.toString();
+    perMinuteCharge = json['perMinuteCharge']?.toString() ?? json['per_minute_charge']?.toString();
+    kmCharge = json['kmCharge']?.toString() ?? json['km_charge']?.toString();
+    intercityType = json['intercityType'] ?? json['intercity_type'];
+    isAcNonAc = json['isAcNonAc'] ?? json['is_ac_non_ac'];
     adminCommission = json['adminCommission'] != null
         ? AdminCommission.fromJson(json['adminCommission'])
-        : AdminCommission(isEnabled: true, amount: "", type: "");
+        : (json['admin_commission_data'] != null 
+            ? AdminCommission.fromJson(json['admin_commission_data'])
+            : AdminCommission(isEnabled: true, amount: "", type: ""));
+    
+    // Handle title - can be array or JSON string
     if (json['title'] != null) {
+      print('🔥 ServiceModel: title raw data = ${json['title']}');
+      print('🔥 ServiceModel: title type = ${json['title'].runtimeType}');
       title = <LanguageTitle>[];
-      json['title'].forEach((v) {
-        title!.add(LanguageTitle.fromJson(v));
-      });
+      var titleData = json['title'];
+      
+      // If title is already a List (from API after our fix)
+      if (titleData is List) {
+        print('🔥 ServiceModel: title is List, length=${titleData.length}');
+        titleData.forEach((v) {
+          print('🔥 ServiceModel: parsing title item: $v');
+          title!.add(LanguageTitle.fromJson(v));
+        });
+        print('🔥 ServiceModel: parsed ${title!.length} title items');
+      } 
+      // If title is a String (old data in database)
+      else if (titleData is String) {
+        print('🔥 ServiceModel: title is String, attempting to decode...');
+        try {
+          var decoded = jsonDecode(titleData);
+          print('🔥 ServiceModel: decoded title = $decoded');
+          if (decoded is List) {
+            decoded.forEach((v) {
+              print('🔥 ServiceModel: parsing title item from string: $v');
+              title!.add(LanguageTitle.fromJson(v));
+            });
+            print('🔥 ServiceModel: parsed ${title!.length} title items from string');
+          }
+        } catch (e) {
+          print('❌ Error parsing title string: $e');
+        }
+      }
+    } else {
+      print('❌ ServiceModel: title is NULL!');
     }
   }
 

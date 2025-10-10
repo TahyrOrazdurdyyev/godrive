@@ -7,6 +7,8 @@ import 'package:driver/payment/orangePayScreen.dart';
 import 'package:driver/payment/xenditModel.dart';
 import 'package:driver/payment/xenditScreen.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/driver_api.dart';
+import 'package:driver/utils/wallet_api.dart';
 import 'package:driver/model/driver_user_model.dart';
 import 'package:flutter_paypal/flutter_paypal.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
@@ -74,48 +76,76 @@ class WalletController extends GetxController {
   }
 
   getUser() async {
-    await FireStoreUtils.getDriverProfile(FireStoreUtils.getCurrentUid()).then((value) {
-      if (value != null) {
-        driverUserModel.value = value;
+    try {
+      // Get driver profile from API
+      final uid = FireStoreUtils.getCurrentUid();
+      final response = await DriverApi.getProfile(uid);
+      
+      if (response['success'] == true && response['driver'] != null) {
+        driverUserModel.value = DriverUserModel.fromJson(response['driver']);
       }
-    });
 
-    await FireStoreUtils.getBankDetails().then((value) {
-      if (value != null) {
-        bankDetailsModel.value = value;
-      }
-    });
+      // TODO: Bank details - not yet in MySQL (no bank transactions, cash only)
+      await FireStoreUtils.getBankDetails().then((value) {
+        if (value != null) {
+          bankDetailsModel.value = value;
+        }
+      });
+    } catch (e) {
+      print('❌ Error loading user: $e');
+    }
   }
 
   getTraction() async {
-    await FireStoreUtils.getWalletTransaction().then((value) {
-      if (value != null) {
-        transactionList.value = value;
+    try {
+      // Get transactions from API
+      final uid = FireStoreUtils.getCurrentUid();
+      final driverResponse = await DriverApi.getProfile(uid);
+      
+      if (driverResponse['success'] == true && driverResponse['driver'] != null) {
+        final driverId = driverResponse['driver']['id'];
+        final response = await WalletApi.getTransactions(userId: driverId, userType: 'driver');
+        
+        if (response['success'] == true && response['transactions'] != null) {
+          transactionList.value = (response['transactions'] as List)
+              .map((json) => WalletTransactionModel.fromJson(json))
+              .toList();
+        }
       }
-    });
+    } catch (e) {
+      print('❌ Error loading transactions: $e');
+    }
   }
 
   walletTopUp() async {
-    WalletTransactionModel transactionModel = WalletTransactionModel(
-        id: Constant.getUuid(),
-        amount: amountController.value.text,
-        createdDate: Timestamp.now(),
-        paymentType: selectedPaymentMethod.value,
-        transactionId: DateTime.now().millisecondsSinceEpoch.toString(),
-        userId: FireStoreUtils.getCurrentUid(),
-        userType: "driver",
-        note: "Wallet Topup");
-
-    await FireStoreUtils.setWalletTransaction(transactionModel).then((value) async {
-      if (value == true) {
-        await FireStoreUtils.updatedDriverWallet(amount: amountController.value.text).then((value) {
+    try {
+      final uid = FireStoreUtils.getCurrentUid();
+      final driverResponse = await DriverApi.getProfile(uid);
+      
+      if (driverResponse['success'] == true && driverResponse['driver'] != null) {
+        final driverId = driverResponse['driver']['id'];
+        
+        // Add money via API
+        final response = await WalletApi.addMoney(
+          userId: driverId,
+          userType: 'driver',
+          amount: double.parse(amountController.value.text),
+          paymentType: selectedPaymentMethod.value,
+          note: 'Wallet Topup',
+        );
+        
+        if (response['success'] == true) {
+          ShowToastDialog.showToast("Amount added in your wallet.");
           getUser();
           getTraction();
-        });
+        } else {
+          ShowToastDialog.showToast("Error adding amount. Please try again.");
+        }
       }
-    });
-
-    ShowToastDialog.showToast("Amount added in your wallet.");
+    } catch (e) {
+      print('❌ Error during wallet top-up: $e');
+      ShowToastDialog.showToast("Error adding amount. Please try again.");
+    }
   }
 
   // Strip

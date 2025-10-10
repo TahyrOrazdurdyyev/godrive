@@ -10,6 +10,7 @@ import 'package:customer/constant/constant.dart';
 import 'package:customer/constant/show_toast_dialog.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/controller/profile_controller.dart';
+import 'package:customer/controller/home_controller.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/model/user_model.dart';
 // Google Fonts replaced with local fonts
@@ -143,7 +144,7 @@ class ProfileScreen extends StatelessWidget {
                                             textCapitalization: TextCapitalization.sentences,
                                             controller: controller.phoneNumberController.value,
                                             textAlign: TextAlign.start,
-                                            enabled: false,
+                                            enabled: true,
                                             decoration: InputDecoration(
                                                 isDense: true,
                                                 filled: true,
@@ -184,7 +185,7 @@ class ProfileScreen extends StatelessWidget {
                                         const SizedBox(
                                           height: 10,
                                         ),
-                                        TextFieldThem.buildTextFiled(context, hintText: 'Email'.tr, controller: controller.emailController.value, enable: false),
+                                        TextFieldThem.buildTextFiled(context, hintText: 'Email'.tr, controller: controller.emailController.value, enable: true),
                                         const SizedBox(
                                           height: 20,
                                         ),
@@ -195,20 +196,40 @@ class ProfileScreen extends StatelessWidget {
                                             ShowToastDialog.showLoader("Please wait".tr);
                                             print("======>${controller.profileImage.value}");
 
-                                            if (controller.profileImage.value.isNotEmpty &&Constant().hasValidUrl(controller.profileImage.value) == false) {
-                                              controller.profileImage.value = await Constant.uploadUserImageToFireStorage(File(controller.profileImage.value),
-                                                  "profileImage/${FireStoreUtils.getCurrentUid()}", File(controller.profileImage.value).path.split('/').last);
+                                            // Upload avatar to Laravel API if new image selected
+                                            if (controller.profileImage.value.isNotEmpty && Constant().hasValidUrl(controller.profileImage.value) == false) {
+                                              String? uploadedUrl = await controller.uploadAvatarToLaravel(File(controller.profileImage.value));
+                                              if (uploadedUrl != null) {
+                                                controller.profileImage.value = uploadedUrl;
+                                              } else {
+                                                ShowToastDialog.closeLoader();
+                                                ShowToastDialog.showToast("Failed to upload avatar. Please try again.");
+                                                return;
+                                              }
                                             }
 
-                                            UserModel userModel = controller.userModel.value;
-                                            userModel.fullName = controller.fullNameController.value.text;
-                                            userModel.profilePic = controller.profileImage.value;
-
-                                            FireStoreUtils.updateUser(userModel).then((value) {
-                                              ShowToastDialog.closeLoader();
+                                            // Update user profile via Laravel API
+                                            bool success = await controller.updateProfile();
+                                            ShowToastDialog.closeLoader();
+                                            
+                                            if (success) {
                                               controller.getData();
+                                              
+                                              // Update HomeController's userModel to refresh avatar in Drawer/AppBar
+                                              print('🔥 Checking if HomeController is registered...');
+                                              try {
+                                                final homeController = Get.find<HomeController>();
+                                                print('🔥 HomeController found! Reloading user data...');
+                                                await homeController.loadUserData();
+                                                print('🔥 HomeController user data refreshed after profile update');
+                                              } catch (e) {
+                                                print('🔥 HomeController not found: $e');
+                                              }
+                                              
                                               ShowToastDialog.showToast("Profile update successfully".tr);
-                                            });
+                                            } else {
+                                              ShowToastDialog.showToast("Profile update failed. Please try again.");
+                                            }
                                           },
                                         ),
                                       ],

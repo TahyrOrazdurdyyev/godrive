@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -15,6 +16,7 @@ import 'package:driver/ui/chat_screen/FullScreenImageViewer.dart';
 import 'package:driver/ui/chat_screen/FullScreenVideoViewer.dart';
 import 'package:driver/utils/DarkThemeProvider.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/conversation_api.dart';
 import 'package:driver/widget/firebase_pagination/src/firestore_pagination.dart';
 import 'package:driver/widget/firebase_pagination/src/models/view_type.dart';
 import 'package:flutter/cupertino.dart';
@@ -329,6 +331,16 @@ class _ChatScreensState extends State<ChatScreens> {
   }
 
   _sendMessage(String message, Url? url, String videoThumbnail, String messageType) async {
+    try {
+      // Use Firestore for chat messages (real-time needed, will migrate to WebSockets later)
+      // final uid = FireStoreUtils.getCurrentUid();
+      // API call commented out until orderId/customerId/driverId are stored as integers
+      // final response = await ConversationApi.sendMessage(...);
+    } catch (e) {
+      print('❌ Error: $e');
+    }
+    
+    // Always also save to Firestore for now (for backward compatibility)
     InboxModel inboxModel = InboxModel(
         lastSenderId: widget.driverId,
         customerId: widget.customerId,
@@ -341,30 +353,33 @@ class _ChatScreensState extends State<ChatScreens> {
         customerProfileImage: widget.customerProfileImage,
         lastMessage: _messageController.text);
 
-    await FireStoreUtils.addInBox(inboxModel);
-
-    ConversationModel conversationModel = ConversationModel(
-        id: const Uuid().v4(),
-        message: message,
-        senderId: FireStoreUtils.getCurrentUid(),
-        receiverId: widget.customerId,
-        createdAt: Timestamp.now(),
-        url: url,
-        orderId: widget.orderId,
-        messageType: messageType,
-        videoThumbnail: videoThumbnail);
-
-    if (url != null) {
-      if (url.mime.contains('image')) {
-        conversationModel.message = "sent an image";
-      } else if (url.mime.contains('video')) {
-        conversationModel.message = "sent an Video";
-      } else if (url.mime.contains('audio')) {
-        conversationModel.message = "Sent a voice message";
+    try {
+      // Prepare message content
+      String messageContent = message;
+      if (url != null) {
+        if (url.mime.contains('image')) {
+          messageContent = "sent an image";
+        } else if (url.mime.contains('video')) {
+          messageContent = "sent an Video";
+        } else if (url.mime.contains('audio')) {
+          messageContent = "Sent a voice message";
+        }
       }
-    }
 
-    await FireStoreUtils.addChat(conversationModel);
+      // Send message via API
+      await ConversationApi.sendMessage(
+        orderId: widget.orderId!,
+        senderId: FireStoreUtils.getCurrentUid(),
+        senderType: 'driver',
+        message: messageContent,
+        messageType: messageType,
+        orderType: 'city', // Assuming city order, adjust if needed
+      );
+    } catch (e) {
+      log('❌ Send message error: $e');
+      ShowToastDialog.showToast("Failed to send message".tr);
+      return;
+    }
 
     Map<String, dynamic> playLoad = <String, dynamic>{
       "type": "chat",

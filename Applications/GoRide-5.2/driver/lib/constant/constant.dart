@@ -39,7 +39,10 @@ class Constant {
   static const String appleLoginType = "apple";
   static LocationLatLng? currentLocation;
 
-  static String mapAPIKey = "";
+  static String baseUrl = "http://185.10.16.248"; // Laravel API base URL
+  static String mapAPIKey = "AIzaSyD28jAxG6GA3qY431-bf9pB0eqcTPF6tMY";
+  static String yandexAPIKey = "c0c6dbc2-d0d0-4ce9-8b95-2703b35dce00";
+  static String yandexMapKitKey = "d59c5fa5-09a4-4712-9f27-980539e08a21";
   static String senderId = '';
   static String jsonNotificationFileURL = '';
   static String radius = "";
@@ -59,7 +62,7 @@ class Constant {
 
 
   static String mapType = "google";
-  static String selectedMapType = 'osm';
+  static String selectedMapType = 'osm'; // Используем OSM с нашего tile сервера (как в customer app)
   static String driverLocationUpdate = "10";
 
   static CurrencyModel? currencyModel;

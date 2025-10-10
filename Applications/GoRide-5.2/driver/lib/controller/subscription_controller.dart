@@ -24,6 +24,10 @@ import 'package:driver/payment/xenditModel.dart';
 import 'package:driver/payment/xenditScreen.dart';
 import 'package:driver/ui/dashboard_screen.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/driver_api.dart';
+import 'package:driver/utils/subscription_api.dart';
+import 'package:driver/utils/settings_api.dart';
+import 'package:driver/utils/wallet_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_paypal/flutter_paypal.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
@@ -59,11 +63,28 @@ class SubscriptionController extends GetxController {
   }
 
   getInitPlanSettings() async {
-    driverUserModel.value = await FireStoreUtils.getDriverProfile(FireStoreUtils.getCurrentUid()) ?? DriverUserModel();
+    // Get driver profile from API
+    final uid = FireStoreUtils.getCurrentUid();
+    final response = await DriverApi.getProfile(uid);
+    if (response['success'] == true && response['driver'] != null) {
+      driverUserModel.value = DriverUserModel.fromJson(response['driver']);
+    }
 
-    await FirebaseFirestore.instance.collection(CollectionName.settings).doc('globalValue').get().then((value) {
-      Constant.isSubscriptionModelApplied = value.data()!['subscription_model'];
-    });
+    // Get settings from API
+    try {
+      final settingsResponse = await SettingsApi.getSettings();
+      if (settingsResponse['success'] == true && settingsResponse['settings'] != null) {
+        final settings = settingsResponse['settings'];
+        Constant.isSubscriptionModelApplied = settings['subscription_model'] ?? false;
+      }
+    } catch (e) {
+      print('❌ Error loading settings: $e');
+      // Fallback to Firestore if API fails
+      await FirebaseFirestore.instance.collection(CollectionName.settings).doc('globalValue').get().then((value) {
+        Constant.isSubscriptionModelApplied = value.data()!['subscription_model'];
+      });
+    }
+    
     await getSubscriptionPlanList();
     getPaymentSettings();
   }
@@ -86,28 +107,37 @@ class SubscriptionController extends GetxController {
 
   Future<void> getSubscriptionPlanList() async {
     isLoading.value = true;
-    if (Constant.adminCommission?.isEnabled == true) {
-      await FireStoreUtils.getSubscriptionPlanById(planId: Constant.commissionSubscriptionID).then(
-        (value) {
-          if (value != null) {
-            subscriptionPlanList.add(value);
-          }
-        },
-      );
-    }
+    
+    try {
+      // Get commission plan if enabled
+      if (Constant.adminCommission?.isEnabled == true) {
+        final commissionResponse = await SubscriptionApi.getPlanById(Constant.commissionSubscriptionID);
+        if (commissionResponse['success'] == true && commissionResponse['plan'] != null) {
+          subscriptionPlanList.add(SubscriptionPlanModel.fromJson(commissionResponse['plan']));
+        }
+      }
 
-    if (Constant.isSubscriptionModelApplied) {
-      await FireStoreUtils.getAllSubscriptionPlans().then(
-        (value) {
-          for (var element in value) {
-              subscriptionPlanList.add(element);
-            }
-        },
-      );
+      // Get all subscription plans if enabled
+      if (Constant.isSubscriptionModelApplied) {
+        final plansResponse = await SubscriptionApi.getAllPlans();
+        if (plansResponse['success'] == true && plansResponse['plans'] != null) {
+          for (var planJson in plansResponse['plans']) {
+            subscriptionPlanList.add(SubscriptionPlanModel.fromJson(planJson));
+          }
+        }
+      }
+      
+      if (driverUserModel.value.subscriptionPlanId == null && subscriptionPlanList.isNotEmpty) {
+        selectedSubscriptionPlan.value = subscriptionPlanList.first;
+      }
+    } catch (e) {
+      print('❌ Error loading subscription plans: $e');
+      // API already loaded plans above, no need for Firestore fallback
+      if (driverUserModel.value.subscriptionPlanId == null && subscriptionPlanList.isNotEmpty) {
+        selectedSubscriptionPlan.value = subscriptionPlanList.first;
+      }
     }
-    if (driverUserModel.value.subscriptionPlanId == null) {
-      selectedSubscriptionPlan.value = subscriptionPlanList.first;
-    }
+    
     isLoading.value = false;
   }
 
@@ -119,49 +149,69 @@ class SubscriptionController extends GetxController {
 
   setOrder() async {
     ShowToastDialog.showLoader("Please wait".tr);
-    driverUserModel.value.subscriptionPlanId = selectedSubscriptionPlan.value.id;
-    driverUserModel.value.subscriptionPlan = selectedSubscriptionPlan.value;
-    driverUserModel.value.subscriptionPlan?.createdAt = Timestamp.now();
-    driverUserModel.value.subscriptionTotalOrders = selectedSubscriptionPlan.value.bookingLimit;
-    driverUserModel.value.subscriptionExpiryDate =
-        selectedSubscriptionPlan.value.expiryDay == '-1' ? null : Constant().addDayInTimestamp(days: selectedSubscriptionPlan.value.expiryDay, date: Timestamp.now());
+    
+    try {
+      driverUserModel.value.subscriptionPlanId = selectedSubscriptionPlan.value.id;
+      driverUserModel.value.subscriptionPlan = selectedSubscriptionPlan.value;
+      driverUserModel.value.subscriptionPlan?.createdAt = Timestamp.now();
+      driverUserModel.value.subscriptionTotalOrders = selectedSubscriptionPlan.value.bookingLimit;
+      driverUserModel.value.subscriptionExpiryDate =
+          selectedSubscriptionPlan.value.expiryDay == '-1' ? null : Constant().addDayInTimestamp(days: selectedSubscriptionPlan.value.expiryDay, date: Timestamp.now());
 
-    SubscriptionHistoryModel subscriptionHistoryData = SubscriptionHistoryModel(
+      final uid = FireStoreUtils.getCurrentUid();
+      final driverResponse = await DriverApi.getProfile(uid);
+      
+      if (driverResponse['success'] != true || driverResponse['driver'] == null) {
+        throw Exception('Failed to get driver profile');
+      }
+      
+      final driverId = driverResponse['driver']['id'];
+
+      // Create subscription history via API
+      await SubscriptionApi.createHistory(
         id: Constant.getUuid(),
-        createdAt: Timestamp.now(),
-        expiryDate: driverUserModel.value.subscriptionExpiryDate,
-        subscriptionPlan: driverUserModel.value.subscriptionPlan,
+        userId: driverId,
+        subscriptionPlanId: selectedSubscriptionPlan.value.id,
+        subscriptionPlanData: selectedSubscriptionPlan.value.toJson(),
         paymentType: selectedPaymentMethod.value,
-        userId: driverUserModel.value.id);
+        expiryDate: driverUserModel.value.subscriptionExpiryDate?.toIso8601String(),
+      );
 
-    await FireStoreUtils.setSubscriptionTransaction(subscriptionHistoryData);
+      // Handle wallet payment
+      if (selectedPaymentMethod.value == paymentModel.value.wallet!.name) {
+        // Deduct from wallet via API
+        await WalletApi.withdrawMoney(
+          userId: driverId,
+          userType: 'driver',
+          amount: totalAmount.value,
+          note: "Subscription Amount debited".tr,
+        );
+        driverUserModel.value.walletAmount = (double.parse(driverUserModel.value.walletAmount.toString()) - totalAmount.value).toString();
+      }
 
-    if (selectedPaymentMethod.value == paymentModel.value.wallet!.name) {
-      WalletTransactionModel transactionModel = WalletTransactionModel(
-          id: Constant.getUuid(),
-          amount: totalAmount.value.toString(),
-          createdDate: Timestamp.now(),
-          paymentType: selectedPaymentMethod.value,
-          userType: "driver",
-          transactionId: DateTime.now().millisecondsSinceEpoch.toString(),
-          userId: FireStoreUtils.getCurrentUid(),
-          note: "Subscription Amount debited".tr);
-
-      await FireStoreUtils.setWalletTransaction(transactionModel);
-      driverUserModel.value.walletAmount = (double.parse(driverUserModel.value.walletAmount.toString()) - totalAmount.value).toString();
+      // Update driver subscription info via API
+      await DriverApi.updateProfile(
+        driverId: driverId,
+        data: {
+          'subscription_plan_id': driverUserModel.value.subscriptionPlanId,
+          'subscription_total_orders': driverUserModel.value.subscriptionTotalOrders,
+          'subscription_expiry_date': driverUserModel.value.subscriptionExpiryDate?.toIso8601String(),
+          'wallet_amount': driverUserModel.value.walletAmount,
+        },
+      );
+      
+      ShowToastDialog.closeLoader();
+      if (isShowing.value == true) {
+        Get.offAll(const DashBoardScreen());
+      } else {
+        Get.back(result: true);
+      }
+      ShowToastDialog.showToast("Success! You've unlocked your subscription benefits starting today.".tr);
+    } catch (e) {
+      ShowToastDialog.closeLoader();
+      ShowToastDialog.showToast("Error updating subscription: ${e.toString()}".tr);
+      print('❌ Subscription update error: $e');
     }
-
-    await FireStoreUtils.updateDriverUser(driverUserModel.value).then(
-      (value) async {
-        ShowToastDialog.closeLoader();
-        if (isShowing.value == true) {
-          Get.offAll(const DashBoardScreen());
-        } else {
-          Get.back(result: true);
-        }
-        ShowToastDialog.showToast("Success! You’ve unlocked your subscription benefits starting today.".tr);
-      },
-    );
   }
 
   // Strip

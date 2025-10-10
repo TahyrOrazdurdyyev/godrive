@@ -48,6 +48,7 @@ class Preferences {
 
   // Token management for Laravel API
   static const String tokenKey = "api_token";
+  static const String user = "user_data";
   
   static Future<void> setToken(String token) async {
     await pref.setString(tokenKey, token);

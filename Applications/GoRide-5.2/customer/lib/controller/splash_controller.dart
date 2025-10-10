@@ -21,10 +21,9 @@ class SplashController extends GetxController {
     if (Preferences.getBoolean(Preferences.isFinishOnBoardingKey) == false) {
       Get.offAll(const OnBoardingScreen());
     } else {
-      // TEMPORARY: Skip Firebase login check for demo
-      // bool isLogin = await FireStoreUtils.isLogin();
-      bool isLogin = false; // Always go to login for demo
-      if (isLogin == true) {
+      // Check if user has valid token
+      String? token = Preferences.getToken();
+      if (token != null && token.isNotEmpty) {
         Get.offAll(const DashBoardScreen());
       } else {
         Get.offAll(const LoginScreen());

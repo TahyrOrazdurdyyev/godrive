@@ -26,6 +26,10 @@ import 'package:customer/payment/xenditModel.dart';
 import 'package:customer/payment/xenditScreen.dart';
 import 'package:customer/themes/app_colors.dart';
 import 'package:customer/utils/fire_store_utils.dart';
+import 'package:customer/utils/driver_api.dart';
+import 'package:customer/utils/driver_wallet_api.dart';
+import 'package:customer/utils/intercity_order_api.dart';
+import 'package:customer/utils/user_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_paypal/flutter_paypal.dart';
@@ -79,105 +83,134 @@ class IntercityPaymentOrderController extends GetxController {
       }
     });
 
-    await FireStoreUtils.getUserProfile(FireStoreUtils.getCurrentUid()).then((value) {
-      if (value != null) {
-        userModel.value = value;
+    // Get user profile via API
+    try {
+      final userResponse = await UserApi.getProfile(FireStoreUtils.getCurrentUid());
+      if (userResponse['success'] == true && userResponse['user'] != null) {
+        userModel.value = UserModel.fromJson(userResponse['user']);
       }
-    });
+    } catch (e) {
+      log('❌ Error getting user: $e');
+    }
 
-    await FireStoreUtils.getDriver(orderModel.value.driverId.toString()).then((value) {
-      if (value != null) {
-        driverUserModel.value = value;
+    // Get driver profile via API
+    try {
+      final driverResponse = await DriverApi.getProfile(orderModel.value.driverId.toString());
+      if (driverResponse['success'] == true && driverResponse['driver'] != null) {
+        driverUserModel.value = DriverUserModel.fromJson(driverResponse['driver']);
       }
-    });
+    } catch (e) {
+      log('❌ Error getting driver: $e');
+    }
+    
     isLoading.value = false;
     update();
   }
 
   completeOrder() async {
     ShowToastDialog.showLoader("Please wait..");
-    orderModel.value.paymentStatus = true;
-    orderModel.value.paymentType = selectedPaymentMethod.value;
-    orderModel.value.status = Constant.rideComplete;
-    orderModel.value.coupon = selectedCouponModel.value;
+    
+    try {
+      // Calculate amounts
+      final totalAmount = calculateAmount();
+      final adminCommission = Constant.calculateOrderAdminCommission(
+        amount: (double.parse(orderModel.value.finalRate.toString()) - 
+                double.parse(couponAmount.value.toString())).toString(),
+        adminCommission: orderModel.value.adminCommission
+      );
 
-    WalletTransactionModel transactionModel = WalletTransactionModel(
-        id: Constant.getUuid(),
-        amount: calculateAmount().toString(),
-        createdDate: Timestamp.now(),
-        paymentType: "wallet",
-        transactionId: orderModel.value.id,
-        userId: orderModel.value.driverId.toString(),
-        orderType: "intercity",
-        userType: "driver",
-        note: "Ride amount credited");
+      // 1. Add ride amount to driver wallet
+      await DriverWalletApi.addTransaction(
+        driverId: orderModel.value.driverId.toString(),
+        amount: totalAmount,
+        orderId: orderModel.value.id!,
+        orderType: 'intercity',
+        note: 'Ride amount credited',
+        paymentType: 'wallet',
+      );
 
-    await FireStoreUtils.setWalletTransaction(transactionModel).then((value) async {
-      if (value == true) {
-        await FireStoreUtils.updateDriverWallet(amount: calculateAmount().toString(), driverId: orderModel.value.driverId.toString());
-      }
-    });
+      // 2. Deduct admin commission from driver wallet
+      await DriverWalletApi.addTransaction(
+        driverId: orderModel.value.driverId.toString(),
+        amount: -double.parse(adminCommission.toString()),
+        orderId: orderModel.value.id!,
+        orderType: 'intercity',
+        note: 'Admin commission debited',
+        paymentType: 'wallet',
+      );
 
-    WalletTransactionModel adminCommissionWallet = WalletTransactionModel(
-        id: Constant.getUuid(),
-        amount:
-            "-${Constant.calculateOrderAdminCommission(amount: (double.parse(orderModel.value.finalRate.toString()) - double.parse(couponAmount.value.toString())).toString(), adminCommission: orderModel.value.adminCommission)}",
-        createdDate: Timestamp.now(),
-        paymentType: "wallet",
-        transactionId: orderModel.value.id,
-        orderType: "intercity",
-        userType: "driver",
-        userId: orderModel.value.driverId.toString(),
-        note: "Admin commission debited");
+      // 3. Check and process referral (if needed)
+      // Note: Referral system not implemented in MySQL yet
+      // await FireStoreUtils.getIntercityFirstOrderOrNOt(orderModel.value).then((value) async {
+      //   if (value == true) {
+      //     await FireStoreUtils.updateIntercityReferralAmount(orderModel.value);
+      //   }
+      // });
 
-    await FireStoreUtils.setWalletTransaction(adminCommissionWallet).then((value) async {
-      if (value == true) {
-        await FireStoreUtils.updateDriverWallet(
-            amount: "-${Constant.calculateOrderAdminCommission(amount: (double.parse(orderModel.value.finalRate.toString()) - double.parse(couponAmount.toString())).toString())}",
-            driverId: orderModel.value.driverId.toString());
-      }
-    });
+      // 4. Send notification to driver
+      if (driverUserModel.value.fcmToken != null) {
+        Map<String, dynamic> playLoad = <String, dynamic>{
+          "type": "intercity_order_payment_complete", 
+          "orderId": orderModel.value.id
+        };
 
-    await FireStoreUtils.getIntercityFirstOrderOrNOt(orderModel.value).then((value) async {
-      if (value == true) {
-        await FireStoreUtils.updateIntercityReferralAmount(orderModel.value);
-      }
-    });
-
-    if (driverUserModel.value.fcmToken != null) {
-      Map<String, dynamic> playLoad = <String, dynamic>{"type": "intercity_order_payment_complete", "orderId": orderModel.value.id};
-
-      await SendNotification.sendOneNotification(
+        await SendNotification.sendOneNotification(
           token: driverUserModel.value.fcmToken.toString(),
           title: 'Payment Received',
-          body: '${userModel.value.fullName}  has paid ${Constant.amountShow(amount: calculateAmount().toString())} for the completed ride.Check your earnings for details.',
-          payload: playLoad);
-    }
-
-    await FireStoreUtils.setInterCityOrder(orderModel.value).then((value) {
-      if (value == true) {
-        ShowToastDialog.closeLoader();
-        ShowToastDialog.showToast("Ride Complete successfully");
+          body: '${userModel.value.fullName} has paid ${Constant.amountShow(amount: totalAmount.toString())} for the completed ride. Check your earnings for details.',
+          payload: playLoad
+        );
       }
-    });
+
+      // 5. Update intercity order status
+      await InterCityOrderApi.updateIntercityOrder(
+        orderId: orderModel.value.id!,
+        data: {
+          'payment_status': true,
+          'payment_type': selectedPaymentMethod.value,
+          'status': Constant.rideComplete,
+        },
+      );
+
+      ShowToastDialog.closeLoader();
+      ShowToastDialog.showToast("Ride Complete successfully");
+      
+    } catch (e) {
+      ShowToastDialog.closeLoader();
+      log('❌ Complete order error: $e');
+      ShowToastDialog.showToast("Failed to complete order");
+    }
   }
 
   completeCashOrder() async {
     ShowToastDialog.showLoader("Please wait..");
 
-    orderModel.value.paymentType = selectedPaymentMethod.value;
-    orderModel.value.status = Constant.rideComplete;
-    orderModel.value.coupon = selectedCouponModel.value;
+    try {
+      // Send notification to driver
+      await SendNotification.sendOneNotification(
+        token: driverUserModel.value.fcmToken.toString(),
+        title: 'Payment changed.',
+        body: '${userModel.value.fullName} has changed payment method.',
+        payload: {}
+      );
 
-    await SendNotification.sendOneNotification(
-        token: driverUserModel.value.fcmToken.toString(), title: 'Payment changed.', body: '${userModel.value.fullName} has changed payment method.', payload: {});
+      // Update intercity order payment method
+      await InterCityOrderApi.updateIntercityOrder(
+        orderId: orderModel.value.id!,
+        data: {
+          'payment_type': selectedPaymentMethod.value,
+          'status': Constant.rideComplete,
+        },
+      );
 
-    await FireStoreUtils.setInterCityOrder(orderModel.value).then((value) {
-      if (value == true) {
-        ShowToastDialog.closeLoader();
-        ShowToastDialog.showToast("Payment method update successfully");
-      }
-    });
+      ShowToastDialog.closeLoader();
+      ShowToastDialog.showToast("Payment method update successfully");
+      
+    } catch (e) {
+      ShowToastDialog.closeLoader();
+      log('❌ Update payment method error: $e');
+      ShowToastDialog.showToast("Failed to update payment method");
+    }
   }
 
   Rx<CouponModel> selectedCouponModel = CouponModel().obs;

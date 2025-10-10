@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:customer/constant/constant.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/controller/dash_board_controller.dart';
+import 'package:customer/controller/home_controller.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/model/user_model.dart';
 // Google Fonts replaced with local fonts
@@ -56,30 +57,50 @@ class DashBoardScreen extends StatelessWidget {
               }),
               actions: [
                 controller.selectedDrawerIndex.value == 0
-                    ? // TEMPORARY: Skip Firebase user profile for demo
-                      InkWell(
-                        onTap: () {
-                          controller.selectedDrawerIndex(8);
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.all(10.0),
-                          child: ClipOval(
-                            child: Container(
-                              height: 40,
-                              width: 36,
-                              decoration: BoxDecoration(
-                                color: Colors.grey[300],
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.person,
-                                color: Colors.grey[600],
-                                size: 24,
+                    ? Obx(() {
+                        final HomeController homeController = Get.isRegistered<HomeController>() 
+                          ? Get.find<HomeController>() 
+                          : Get.put(HomeController());
+                        
+                        String? avatarUrl = homeController.userModel.value.profilePic;
+                        print('🔥 AppBar Avatar URL: $avatarUrl');
+                        
+                        return InkWell(
+                          onTap: () {
+                            controller.selectedDrawerIndex(8);
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.all(10.0),
+                            child: ClipOval(
+                              child: Container(
+                                height: 40,
+                                width: 36,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[300],
+                                  shape: BoxShape.circle,
+                                ),
+                                child: avatarUrl != null && avatarUrl.isNotEmpty
+                                  ? Image.network(
+                                      avatarUrl,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return Icon(
+                                          Icons.person,
+                                          color: Colors.grey[600],
+                                          size: 24,
+                                        );
+                                      },
+                                    )
+                                  : Icon(
+                                      Icons.person,
+                                      color: Colors.grey[600],
+                                      size: 24,
+                                    ),
                               ),
                             ),
                           ),
-                        ),
-                      )
+                        );
+                      })
                     : Container(),
               ],
             ),
@@ -162,32 +183,76 @@ class DashBoardScreen extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(60),
-                      child: Container(
-                        height: Responsive.width(20, context),
-                        width: Responsive.width(20, context),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[300],
-                          borderRadius: BorderRadius.circular(60),
+                    Obx(() {
+                      final HomeController homeController = Get.isRegistered<HomeController>() 
+                        ? Get.find<HomeController>() 
+                        : Get.put(HomeController());
+                      
+                      String? avatarUrl = homeController.userModel.value.profilePic;
+                      print('🔥 Drawer Avatar URL: $avatarUrl');
+                      
+                      return ClipRRect(
+                        borderRadius: BorderRadius.circular(60),
+                        child: Container(
+                          height: Responsive.width(20, context),
+                          width: Responsive.width(20, context),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[300],
+                            borderRadius: BorderRadius.circular(60),
+                          ),
+                          child: avatarUrl != null && avatarUrl.isNotEmpty
+                            ? Image.network(
+                                avatarUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Icon(
+                                    Icons.person,
+                                    color: Colors.grey[600],
+                                    size: 40,
+                                  );
+                                },
+                              )
+                            : Icon(
+                                Icons.person,
+                                color: Colors.grey[600],
+                                size: 40,
+                              ),
                         ),
-                        child: Icon(
-                          Icons.person,
-                          color: Colors.grey[600],
-                          size: 40,
-                        ),
-                      ),
-                    ),
+                      );
+                    }),
                     Padding(
                       padding: const EdgeInsets.only(top: 6),
-                      child: Text("Demo User", style: TextStyle(fontWeight: FontWeight.w500)),
+                      child: Obx(() {
+                        if (Get.isRegistered<HomeController>()) {
+                          final HomeController homeController = Get.find<HomeController>();
+                          return Text(
+                            homeController.userModel.value.fullName ?? "User", 
+                            style: TextStyle(fontWeight: FontWeight.w500)
+                          );
+                        } else {
+                          return Text(
+                            "User", 
+                            style: TextStyle(fontWeight: FontWeight.w500)
+                          );
+                        }
+                      }),
                     ),
                     Padding(
                       padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        "demo@goride.com",
-                        style: TextStyle(),
-                      ),
+                      child: Obx(() {
+                        if (Get.isRegistered<HomeController>()) {
+                          final HomeController homeController = Get.find<HomeController>();
+                          return Text(
+                            homeController.userModel.value.email ?? "",
+                            style: TextStyle(),
+                          );
+                        } else {
+                          return Text(
+                            "",
+                            style: TextStyle(),
+                          );
+                        }
+                      }),
                     )
                   ],
                 ),

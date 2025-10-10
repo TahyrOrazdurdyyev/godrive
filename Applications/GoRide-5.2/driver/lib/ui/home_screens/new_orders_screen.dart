@@ -22,7 +22,7 @@ class NewOrderScreen extends StatelessWidget {
     return GetX<HomeController>(
         init: HomeController(),
         dispose: (state) {
-          FireStoreUtils().closeStream();
+          // Cleanup handled in controller.onClose()
         },
         builder: (controller) {
           return controller.isLoading.value
@@ -32,7 +32,7 @@ class NewOrderScreen extends StatelessWidget {
                       child: Text("You are Now offline so you can't get nearest order.".tr),
                     )
                   : StreamBuilder<List<OrderModel>>(
-                      stream: FireStoreUtils().getOrders(controller.driverModel.value, Constant.currentLocation?.latitude, Constant.currentLocation?.longitude),
+                      stream: controller.getNearbyOrdersStream(),
                       builder: (context, snapshot) {
                         if (snapshot.connectionState == ConnectionState.waiting) {
                           return Constant.loader(context);
@@ -118,6 +118,18 @@ class NewOrderScreen extends StatelessWidget {
 
                               return InkWell(
                                 onTap: () {
+                                  // 🔥 BLOCK ORDER ACCESS IF DRIVER NOT APPROVED
+                                  if (!controller.isDriverActive.value) {
+                                    Get.snackbar(
+                                      "Account Pending".tr,
+                                      "Your account is pending admin approval. Please wait.".tr,
+                                      snackPosition: SnackPosition.BOTTOM,
+                                      backgroundColor: Colors.orange,
+                                      colorText: Colors.white,
+                                    );
+                                    return;
+                                  }
+                                  
                                   Get.to(const OrderMapScreen(), arguments: {"orderModel": orderModel.id.toString()})!.then((value) {
                                     if (value != null && value == true) {
                                       controller.selectedIndex.value = 1;

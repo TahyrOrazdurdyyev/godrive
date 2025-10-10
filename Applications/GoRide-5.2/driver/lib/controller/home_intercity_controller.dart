@@ -8,6 +8,8 @@ import 'package:driver/ui/intercity_screen/active_intercity_order_screen.dart';
 import 'package:driver/ui/intercity_screen/new_order_intercity_screen.dart';
 import 'package:driver/ui/order_intercity_screen/order_intercity_screen.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/driver_api.dart';
+import 'package:driver/utils/service_api.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -30,6 +32,7 @@ class HomeIntercityController extends GetxController {
   Rx<DriverUserModel> driverModel = DriverUserModel().obs;
   Rx<ServiceModel> selectedService = ServiceModel().obs;
   RxBool isLoading = true.obs;
+  RxBool isDriverActive = true.obs; // Track if driver is approved (is_active = 1)
 
   getDriver() async {
     await FireStoreUtils.getDriverProfile(FireStoreUtils.getCurrentUid()).then((value) {
@@ -38,13 +41,39 @@ class HomeIntercityController extends GetxController {
     });
 
     if (driverModel.value.serviceId != null) {
-      await FireStoreUtils.getService().then((value) {
-        value.forEach((element) {
-          if (element.id == driverModel.value.serviceId) {
-            selectedService.value = element;
+      try {
+        // Get services from Laravel API
+        final servicesResponse = await ServiceApi.getAllServices();
+        if (servicesResponse['success'] == true) {
+          final services = (servicesResponse['services'] as List)
+              .map((s) => ServiceModel.fromJson(s))
+              .toList();
+          for (var element in services) {
+            if (element.id == driverModel.value.serviceId) {
+              selectedService.value = element;
+            }
           }
-        });
-      });
+        }
+      } catch (e) {
+        print('❌ Error loading services: $e');
+      }
+    }
+    
+    checkDriverApprovalStatus();
+  }
+  
+  // Check driver approval status via Laravel API
+  checkDriverApprovalStatus() async {
+    try {
+      final uid = FireStoreUtils.getCurrentUid();
+      final data = await DriverApi.checkStatus(uid);
+      
+      if (data['success'] == true) {
+        isDriverActive.value = data['driver']['is_active'] == 1;
+      }
+    } catch (e) {
+      print('Error checking driver status: $e');
+      isDriverActive.value = true; // Default to true to avoid blocking on error
     }
   }
 

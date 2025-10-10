@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 // Google Fonts replaced with local fonts
 import 'package:country_code_picker/country_code_picker.dart';
 // Google Fonts replaced with local fonts
@@ -11,6 +13,8 @@ import 'package:customer/controller/information_controller.dart';
 import 'package:customer/model/referral_model.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/model/user_model.dart';
+import 'package:customer/services/laravel_service.dart';
+import 'package:customer/utils/Preferences.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/themes/app_colors.dart';
 // Google Fonts replaced with local fonts
@@ -143,60 +147,53 @@ class InformationScreen extends StatelessWidget {
                             } else if (Constant.validateEmail(controller.emailController.value.text) == false) {
                               ShowToastDialog.showToast("Please enter valid email".tr);
                             } else {
-                              if (controller.referralCodeController.value.text.isNotEmpty) {
-                                FireStoreUtils.checkReferralCodeValidOrNot(controller.referralCodeController.value.text).then((value) async {
-                                  if (value == true) {
-                                    ShowToastDialog.showLoader("Please wait".tr);
-                                    UserModel userModel = controller.userModel.value;
-                                    userModel.fullName = controller.fullNameController.value.text;
-                                    userModel.email = controller.emailController.value.text;
-                                    userModel.countryCode = controller.countryCode.value;
-                                    userModel.phoneNumber = controller.phoneNumberController.value.text;
-                                    userModel.isActive = true;
-                                    userModel.createdAt = Timestamp.now();
-
-                                    await FireStoreUtils.getReferralUserByCode(controller.referralCodeController.value.text).then((value) async {
-                                      if (value != null) {
-                                        ReferralModel ownReferralModel =
-                                            ReferralModel(id: FireStoreUtils.getCurrentUid(), referralBy: value.id, referralCode: Constant.getReferralCode());
-                                        await FireStoreUtils.referralAdd(ownReferralModel);
-                                      } else {
-                                        ReferralModel referralModel = ReferralModel(id: FireStoreUtils.getCurrentUid(), referralBy: "", referralCode: Constant.getReferralCode());
-                                        await FireStoreUtils.referralAdd(referralModel);
-                                      }
-                                    });
-
-                                    await FireStoreUtils.updateUser(userModel).then((value) {
-                                      ShowToastDialog.closeLoader();
-                                      print("------>$value");
-                                      if (value == true) {
-                                        Get.offAll(const DashBoardScreen());
-                                      }
-                                    });
-                                  } else {
-                                    ShowToastDialog.showToast("Referral code Invalid".tr);
-                                  }
-                                });
-                              } else {
+                              try {
                                 ShowToastDialog.showLoader("Please wait".tr);
-                                UserModel userModel = controller.userModel.value;
-                                userModel.fullName = controller.fullNameController.value.text;
-                                userModel.email = controller.emailController.value.text;
-                                userModel.countryCode = controller.countryCode.value;
-                                userModel.phoneNumber = controller.phoneNumberController.value.text;
-                                userModel.isActive = true;
-                                userModel.createdAt = Timestamp.now();
-
-                                ReferralModel referralModel = ReferralModel(id: FireStoreUtils.getCurrentUid(), referralBy: "", referralCode: Constant.getReferralCode());
-                                await FireStoreUtils.referralAdd(referralModel);
-
-                                await FireStoreUtils.updateUser(userModel).then((value) {
+                                
+                                // Get Firebase UID from current user
+                                String? firebaseUid = FirebaseAuth.instance.currentUser?.uid;
+                                if (firebaseUid == null || firebaseUid.isEmpty) {
                                   ShowToastDialog.closeLoader();
-                                  print("------>$value");
-                                  if (value == true) {
-                                    Get.offAll(const DashBoardScreen());
-                                  }
-                                });
+                                  ShowToastDialog.showToast("Authentication error. Please login again.");
+                                  return;
+                                }
+                                
+                                print("🔥 Firebase UID: $firebaseUid");
+                                print("🔥 Email: ${controller.emailController.value.text}");
+                                print("🔥 Full Name: ${controller.fullNameController.value.text}");
+                                print("🔥 Phone: ${controller.phoneNumberController.value.text}");
+                                print("🔥 Country Code: ${controller.countryCode.value}");
+
+                                // Register user with Laravel API
+                                UserModel? registeredUser = await LaravelService.loginUser(
+                                  firebaseUid: firebaseUid,
+                                  email: controller.emailController.value.text,
+                                  fullName: controller.fullNameController.value.text,
+                                  phoneNumber: controller.phoneNumberController.value.text,
+                                  countryCode: controller.countryCode.value,
+                                  loginType: 'phone', // Fixed loginType
+                                );
+
+                                ShowToastDialog.closeLoader();
+                                
+                                if (registeredUser != null) {
+                                  print("🎉 Registration successful!");
+                                  // Save user data to preferences
+                                  await Preferences.setString(Preferences.user, json.encode(registeredUser.toJson()));
+                                  print("🎉 User data saved to preferences");
+                                  ShowToastDialog.showToast("Account created successfully!");
+                                  Get.offAll(const DashBoardScreen());
+                                } else {
+                                  print("❌ Registration failed - registeredUser is null");
+                                  ShowToastDialog.showToast("Registration failed. Please try again.");
+                                }
+                              } catch (e) {
+                                ShowToastDialog.closeLoader();
+                                ShowToastDialog.showToast("Something went wrong. Please try again.");
+                                print("Registration error: $e");
+                                print("Firebase user: ${FirebaseAuth.instance.currentUser?.uid}");
+                                print("Email: ${controller.emailController.value.text}");
+                                print("Phone: ${controller.phoneNumberController.value.text}");
                               }
                             }
                           },

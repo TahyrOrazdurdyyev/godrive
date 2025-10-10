@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:http/http.dart' as http;
 import 'package:customer/services/api_service.dart';
 import 'package:customer/model/user_model.dart';
 import 'package:customer/model/order_model.dart';
@@ -12,6 +14,118 @@ import 'package:customer/utils/Preferences.dart';
 class LaravelService {
   static final ApiService _apiService = ApiService();
 
+  // Upload customer avatar
+  static Future<String?> uploadCustomerAvatar(File imageFile) async {
+    try {
+      print('🔥 Uploading customer avatar...');
+      
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${ApiService.baseUrl}/customer/upload-avatar'),
+      );
+      
+      // Add authorization header
+      String? token = await Preferences.getToken();
+      if (token != null) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
+      
+      // Add image file
+      request.files.add(await http.MultipartFile.fromPath('avatar', imageFile.path));
+      
+      var response = await request.send();
+      var responseData = await response.stream.bytesToString();
+      var jsonResponse = json.decode(responseData);
+      
+      print('🔥 Upload response: $jsonResponse');
+      
+      if (response.statusCode == 200 && jsonResponse['success'] == true) {
+        return jsonResponse['data']['avatar_url'];
+      } else {
+        print('🔥 Upload failed: ${jsonResponse['message']}');
+        return null;
+      }
+    } catch (e) {
+      print('🔥 Upload error: $e');
+      return null;
+    }
+  }
+
+  // Delete customer avatar
+  static Future<bool> deleteCustomerAvatar() async {
+    try {
+      print('🔥 Deleting customer avatar...');
+      
+      String? token = await Preferences.getToken();
+      if (token == null) {
+        print('🔥 No token found');
+        return false;
+      }
+      
+      final response = await http.delete(
+        Uri.parse('${ApiService.baseUrl}/customer/delete-avatar'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      
+      var jsonResponse = json.decode(response.body);
+      print('🔥 Delete response: $jsonResponse');
+      
+      return response.statusCode == 200 && jsonResponse['success'] == true;
+    } catch (e) {
+      print('🔥 Delete error: $e');
+      return false;
+    }
+  }
+
+  // Update customer profile
+  static Future<UserModel?> updateCustomerProfile({
+    String? fullName,
+    String? email,
+    String? phoneNumber,
+    String? countryCode,
+    String? profilePic,
+  }) async {
+    try {
+      print('🔥 Updating customer profile...');
+      
+      String? token = await Preferences.getToken();
+      if (token == null) {
+        print('🔥 No token found');
+        return null;
+      }
+      
+      Map<String, dynamic> data = {};
+      if (fullName != null) data['full_name'] = fullName;
+      if (email != null) data['email'] = email;
+      if (phoneNumber != null) data['phone_number'] = phoneNumber;
+      if (countryCode != null) data['country_code'] = countryCode;
+      if (profilePic != null) data['profile_pic'] = profilePic;
+      
+      final response = await http.put(
+        Uri.parse('${ApiService.baseUrl}/customer/profile'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode(data),
+      );
+      
+      var jsonResponse = json.decode(response.body);
+      print('🔥 Update profile response: $jsonResponse');
+      
+      if (response.statusCode == 200 && jsonResponse['success'] == true) {
+        return UserModel.fromJson(jsonResponse['data']);
+      }
+      return null;
+    } catch (e) {
+      print('🔥 Update profile error: $e');
+      return null;
+    }
+  }
+
   // Authentication
   static Future<UserModel?> loginUser({
     required String firebaseUid,
@@ -24,6 +138,13 @@ class LaravelService {
     String? profilePic,
   }) async {
     try {
+      print('🔥 LaravelService.loginUser called with:');
+      print('firebaseUid: $firebaseUid');
+      print('email: $email');
+      print('fullName: $fullName');
+      print('phoneNumber: $phoneNumber');
+      print('loginType: $loginType');
+      
       final response = await _apiService.customerLogin({
         'firebase_uid': firebaseUid,
         'email': email,
@@ -35,16 +156,38 @@ class LaravelService {
         'profile_pic': profilePic,
       });
 
+      print('🔥 API Response: $response');
+
       if (response['success'] == true && response['data'] != null) {
         // Store token
-        await Preferences.setToken(response['data']['token']);
+        try {
+          await Preferences.setToken(response['data']['token']);
+          print('🔥 Token stored: ${response['data']['token']}');
+        } catch (e) {
+          print('🔥 Error storing token: $e');
+        }
         
         // Return user model
-        return UserModel.fromJson(response['data']['user']);
+        try {
+          final user = UserModel.fromJson(response['data']['user']);
+          print('🔥 UserModel created: ${user.fullName}, ${user.email}');
+          return user;
+        } catch (e) {
+          print('🔥 Error creating UserModel: $e');
+          print('🔥 User data: ${response['data']['user']}');
+          return null;
+        }
       }
+      print('🔥 Response failed - success: ${response['success']}, data: ${response['data']}');
+      print('🔥 Full response: $response');
       return null;
     } catch (e) {
       print('Login error: $e');
+      if (e is ApiException) {
+        print('API Exception: ${e.message}');
+        print('Status Code: ${e.statusCode}');
+        print('Errors: ${e.errors}');
+      }
       return null;
     }
   }
@@ -76,18 +219,30 @@ class LaravelService {
   // Services
   static Future<List<ServiceModel>> getServices() async {
     try {
-      final response = await _apiService.getCityServices();
+      print('🔥 LaravelService.getServices: Calling API...');
+      // Use correct endpoint: /services instead of /services/city
+      final response = await _apiService.getServices();
+      print('🔥 LaravelService.getServices: Got response: ${response['success']}');
       
       if (response['success'] == true && response['data'] != null) {
+        print('🔥 LaravelService.getServices: Data length: ${response['data'].length}');
         List<ServiceModel> services = [];
         for (var serviceData in response['data']) {
-          services.add(ServiceModel.fromJson(serviceData));
+          try {
+            print('🔥 LaravelService.getServices: Parsing service ID ${serviceData['id']}');
+            services.add(ServiceModel.fromJson(serviceData));
+          } catch (e) {
+            print('❌ Error parsing service: $e');
+            print('❌ Service data: $serviceData');
+          }
         }
+        print('🔥 LaravelService.getServices: Successfully parsed ${services.length} services');
         return services;
       }
+      print('❌ LaravelService.getServices: Response success=false or data=null');
       return [];
     } catch (e) {
-      print('Get services error: $e');
+      print('❌ Get services error: $e');
       return [];
     }
   }
@@ -128,18 +283,23 @@ class LaravelService {
   // Banners
   static Future<List<BannerModel>> getBanners() async {
     try {
+      print('🔥 Calling API getBanners...');
       final response = await _apiService.getBanners();
+      print('🔥 API response: $response');
       
       if (response['success'] == true && response['data'] != null) {
         List<BannerModel> banners = [];
         for (var bannerData in response['data']) {
+          print('🔥 Parsing banner: $bannerData');
           banners.add(BannerModel.fromJson(bannerData));
         }
+        print('🔥 Parsed ${banners.length} banners successfully');
         return banners;
       }
+      print('🔥 No banners in response or success=false');
       return [];
     } catch (e) {
-      print('Get banners error: $e');
+      print('🔥 Get banners error: $e');
       return [];
     }
   }

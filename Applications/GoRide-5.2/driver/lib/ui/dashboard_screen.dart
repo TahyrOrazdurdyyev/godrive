@@ -8,6 +8,7 @@ import 'package:driver/themes/app_colors.dart';
 import 'package:driver/themes/responsive.dart';
 import 'package:driver/utils/DarkThemeProvider.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/driver_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
@@ -26,23 +27,8 @@ class DashBoardScreen extends StatelessWidget {
             appBar: AppBar(
               backgroundColor: AppColors.primary,
               title: controller.selectedDrawerIndex.value == 0
-                  ? StreamBuilder(
-                      stream: FireStoreUtils.fireStore
-                          .collection(CollectionName.driverUsers)
-                          .doc(FireStoreUtils.getCurrentUid())
-                          .snapshots(),
-                      builder: (context, snapshot) {
-                        if (snapshot.hasError) {
-                          return Text('Something went wrong'.tr);
-                        }
-
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return Constant.loader(context);
-                        }
-
-                        DriverUserModel driverModel =
-                            DriverUserModel.fromJson(snapshot.data!.data()!);
+                  ? Obx(() {
+                        DriverUserModel driverModel = controller.driverModel.value;
                         return Container(
                           width: Responsive.width(50, context),
                           height: Responsive.height(5.5, context),
@@ -85,9 +71,10 @@ class DashBoardScreen extends StatelessWidget {
                                         context, "vehicleInformation");
                                   } else {
                                     driverModel.isOnline = true;
-                                    await FireStoreUtils.updateDriverUser(
-                                        driverModel);
-
+                                    await DriverApi.updateStatus(
+                                        uid: FireStoreUtils.getCurrentUid(),
+                                        isOnline: true);
+                                    controller.loadDriverProfile();
                                     ShowToastDialog.closeLoader();
                                   }
                                 },
@@ -113,9 +100,10 @@ class DashBoardScreen extends StatelessWidget {
                                 onTap: () async {
                                   ShowToastDialog.showLoader("Please wait".tr);
                                   driverModel.isOnline = false;
-                                  await FireStoreUtils.updateDriverUser(
-                                      driverModel);
-
+                                  await DriverApi.updateStatus(
+                                      uid: FireStoreUtils.getCurrentUid(),
+                                      isOnline: false);
+                                  controller.loadDriverProfile();
                                   ShowToastDialog.closeLoader();
                                 },
                                 child: Align(
@@ -320,18 +308,11 @@ class DashBoardScreen extends StatelessWidget {
         padding: EdgeInsets.zero,
         children: [
           DrawerHeader(
-            child: FutureBuilder<DriverUserModel?>(
-                future: FireStoreUtils.getDriverProfile(
-                    FireStoreUtils.getCurrentUid()),
-                builder: (context, snapshot) {
-                  switch (snapshot.connectionState) {
-                    case ConnectionState.waiting:
-                      return Constant.loader(context);
-                    case ConnectionState.done:
-                      if (snapshot.hasError) {
-                        return Text(snapshot.error.toString());
-                      } else {
-                        DriverUserModel driverModel = snapshot.data!;
+            child: Obx(() {
+                        DriverUserModel driverModel = controller.driverModel.value;
+                        if (driverModel.id == null) {
+                          return Constant.loader(context);
+                        }
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -363,10 +344,6 @@ class DashBoardScreen extends StatelessWidget {
                             )
                           ],
                         );
-                      }
-                    default:
-                      return Text('Error'.tr);
-                  }
                 }),
           ),
           Column(children: drawerOptions),

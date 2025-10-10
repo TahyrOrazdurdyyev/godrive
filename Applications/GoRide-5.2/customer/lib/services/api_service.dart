@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:customer/utils/Preferences.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:8000/api/v1'; // Change this to your server URL
+  static const String baseUrl = 'http://185.10.16.248/api/v1'; // Production server URL
   
   // Singleton pattern
   static final ApiService _instance = ApiService._internal();
@@ -66,12 +66,20 @@ class ApiService {
     bool requireAuth = true,
   }) async {
     try {
+      print('🔥 Making POST request to: $baseUrl$endpoint');
+      print('🔥 Headers: ${_getHeaders(requireAuth: requireAuth)}');
+      print('🔥 Body: ${data != null ? json.encode(data) : null}');
+      
       final headers = _getHeaders(requireAuth: requireAuth);
       final response = await http.post(
         Uri.parse('$baseUrl$endpoint'),
         headers: headers,
         body: data != null ? json.encode(data) : null,
       );
+      
+      print('🔥 Response status: ${response.statusCode}');
+      print('🔥 Response body: ${response.body}');
+      
       return _handleResponse(response);
     } on SocketException {
       throw ApiException(message: 'No internet connection');

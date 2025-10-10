@@ -11,6 +11,7 @@ import 'package:driver/ui/dashboard_screen.dart';
 import 'package:driver/ui/subscription_plan_screen/subscription_list_screen.dart';
 import 'package:driver/utils/DarkThemeProvider.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/driver_api.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -102,52 +103,49 @@ class OtpScreen extends StatelessWidget {
                                   });
                                 } else {
                                   log("----->old user");
-                                  FireStoreUtils.userExitOrNot(value.user!.uid).then((userExit) async {
+                                  
+                                  // Check driver profile via Laravel API
+                                  try {
+                                    final driverData = await DriverApi.getProfile(value.user!.uid);
                                     ShowToastDialog.closeLoader();
-                                    if (userExit == true) {
-                                      await FireStoreUtils.getDriverProfile(value.user!.uid).then(
-                                        (value) {
-                                          if (value != null) {
-                                            DriverUserModel userModel = value;
-                                            bool isPlanExpire = false;
-                                            if (userModel.subscriptionPlan?.id != null) {
-                                              if (userModel.subscriptionExpiryDate == null) {
-                                                if (userModel.subscriptionPlan?.expiryDay == '-1') {
-                                                  isPlanExpire = false;
-                                                } else {
-                                                  isPlanExpire = true;
-                                                }
-                                              } else {
-                                                DateTime expiryDate = userModel.subscriptionExpiryDate!.toDate();
-                                                isPlanExpire = expiryDate.isBefore(DateTime.now());
-                                              }
-                                            } else {
-                                              isPlanExpire = true;
-                                            }
-                                            if (userModel.subscriptionPlanId == null || isPlanExpire == true) {
-                                              if (Constant.adminCommission?.isEnabled == false && Constant.isSubscriptionModelApplied == false) {
-                                                Get.offAll(const DashBoardScreen());
-                                              } else {
-                                                Get.offAll(const SubscriptionListScreen(), arguments: {"isShow": true});
-                                              }
-                                            }else{
-                                              Get.offAll(const DashBoardScreen());
-                                            }
-                                          }
-                                        },
-                                      );
+                                    
+                                    if (driverData['success'] == true) {
+                                      // Driver exists in MySQL, proceed to dashboard
+                                      log("✅ Driver found in MySQL, proceeding to dashboard");
+                                      
+                                      // Check subscription from API
+                                      bool isPlanExpire = false;
+                                      if (driverProfile.subscriptionPlanId != null) {
+                                        if (driverProfile.subscriptionExpiryDate == null) {
+                                          isPlanExpire = false; // No expiry = active
+                                        } else {
+                                          DateTime expiryDate = driverProfile.subscriptionExpiryDate!.toDate();
+                                          isPlanExpire = expiryDate.isBefore(DateTime.now());
+                                        }
+                                      } else {
+                                        isPlanExpire = true; // No subscription
+                                      }
+                                      
+                                      if (driverProfile.subscriptionPlanId == null || isPlanExpire == true) {
+                                        if (Constant.adminCommission?.isEnabled == false && Constant.isSubscriptionModelApplied == false) {
+                                          Get.offAll(const DashBoardScreen());
+                                        } else {
+                                          Get.offAll(const SubscriptionListScreen(), arguments: {"isShow": true});
+                                        }
+                                      } else {
+                                        Get.offAll(const DashBoardScreen());
+                                      }
                                     } else {
-                                      DriverUserModel userModel = DriverUserModel();
-                                      userModel.id = value.user!.uid;
-                                      userModel.countryCode = controller.countryCode.value;
-                                      userModel.phoneNumber = controller.phoneNumber.value;
-                                      userModel.loginType = Constant.phoneLoginType;
-
-                                      Get.off(const InformationScreen(), arguments: {
-                                        "userModel": userModel,
-                                      });
+                                      // Driver not found in MySQL, should not happen for old user
+                                      log("⚠️ Old user but not found in MySQL, going to dashboard");
+                                      Get.offAll(const DashBoardScreen());
                                     }
-                                  });
+                                  } catch (e) {
+                                    ShowToastDialog.closeLoader();
+                                    log("❌ Error checking driver profile: $e");
+                                    // Fallback: proceed to dashboard anyway
+                                    Get.offAll(const DashBoardScreen());
+                                  }
                                 }
                               }).catchError((error) {
                                 ShowToastDialog.closeLoader();

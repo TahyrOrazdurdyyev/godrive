@@ -2,6 +2,8 @@ import 'package:driver/constant/constant.dart';
 import 'package:driver/model/driver_user_model.dart';
 import 'package:driver/model/order_model.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/order_api.dart';
+import 'package:driver/utils/driver_api.dart';
 import 'package:get/get.dart';
 
 class CompleteOrderController extends GetxController {
@@ -162,12 +164,13 @@ class CompleteOrderController extends GetxController {
   Rx<DriverUserModel> driverModel = DriverUserModel().obs;
 
   getDriver() async {
-    await FireStoreUtils.getDriverProfile(orderModel.value.driverId.toString()).then(
-      (value) {
-        if (value != null) {
-          driverModel.value = value;
-        }
-      },
-    );
+    try {
+      final response = await DriverApi.getProfile(orderModel.value.driverId.toString());
+      if (response['success'] == true && response['driver'] != null) {
+        driverModel.value = DriverUserModel.fromJson(response['driver']);
+      }
+    } catch (e) {
+      print('❌ Error getting driver: $e');
+    }
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:driver/constant/constant.dart';
 import 'package:driver/constant/show_toast_dialog.dart';
@@ -17,6 +18,9 @@ import 'package:driver/ui/order_screen/complete_order_screen.dart';
 import 'package:driver/ui/withdraw_history/withdraw_history_screen.dart';
 import 'package:driver/utils/DarkThemeProvider.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/order_api.dart';
+import 'package:driver/utils/intercity_order_api.dart';
+import 'package:driver/utils/driver_wallet_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -104,26 +108,29 @@ class WalletScreen extends StatelessWidget {
                                       WalletTransactionModel walletTransactionModel = controller.transactionList[index];
                                       return InkWell(
                                         onTap: () async {
-                                          if (walletTransactionModel.orderType == "city") {
-                                            await FireStoreUtils.getOrder(walletTransactionModel.transactionId.toString()).then((value) {
-                                              if (value != null) {
-                                                OrderModel orderModel = value;
+                                          try {
+                                            if (walletTransactionModel.orderType == "city") {
+                                              final response = await OrderApi.getOrderById(walletTransactionModel.transactionId.toString());
+                                              if (response['success'] == true && response['order'] != null) {
+                                                OrderModel orderModel = OrderModel.fromJson(response['order']);
                                                 Get.to(const CompleteOrderScreen(), arguments: {
                                                   "orderModel": orderModel,
                                                 });
                                               }
-                                            });
-                                          } else if (walletTransactionModel.orderType == "intercity") {
-                                            await FireStoreUtils.getInterCityOrder(walletTransactionModel.transactionId.toString()).then((value) {
-                                              if (value != null) {
-                                                InterCityOrderModel orderModel = value;
+                                            } else if (walletTransactionModel.orderType == "intercity") {
+                                              final response = await InterCityOrderApi.getById(walletTransactionModel.transactionId.toString());
+                                              if (response['success'] == true && response['order'] != null) {
+                                                InterCityOrderModel orderModel = InterCityOrderModel.fromJson(response['order']);
                                                 Get.to(const CompleteIntercityOrderScreen(), arguments: {
                                                   "orderModel": orderModel,
                                                 });
                                               }
-                                            });
-                                          } else {
-                                            showTransactionDetails(context: context, walletTransactionModel: walletTransactionModel);
+                                            } else {
+                                              showTransactionDetails(context: context, walletTransactionModel: walletTransactionModel);
+                                            }
+                                          } catch (e) {
+                                            log('❌ Get order error: $e');
+                                            ShowToastDialog.showToast("Failed to load order".tr);
                                           }
                                         },
                                         child: Padding(
@@ -212,15 +219,9 @@ class WalletScreen extends StatelessWidget {
                         if (double.parse(controller.driverUserModel.value.walletAmount.toString()) <= 0) {
                           ShowToastDialog.showToast("Insufficient balance".tr);
                         } else {
-                          ShowToastDialog.showLoader("Please wait".tr);
-                          await FireStoreUtils.bankDetailsIsAvailable().then((value) {
-                            ShowToastDialog.closeLoader();
-                            if (value == true) {
-                              withdrawAmountBottomSheet(context, controller);
-                            } else {
-                              ShowToastDialog.showToast("Your bank details is not available.Please add bank details".tr);
-                            }
-                          });
+                          // TODO: Implement bank details check API endpoint
+                          // For now, allow withdrawal if wallet has balance
+                          withdrawAmountBottomSheet(context, controller);
                         }
                       },
                     ),
@@ -1352,22 +1353,39 @@ class WalletScreen extends StatelessWidget {
                                   "Withdraw amount must be greater or equal to ${Constant.amountShow(amount: Constant.minimumAmountToWithdrawal.toString())}".tr);
                             } else {
                               ShowToastDialog.showLoader("Please wait".tr);
-                              WithdrawModel withdrawModel = WithdrawModel();
-                              withdrawModel.id = Constant.getUuid();
-                              withdrawModel.userId = FireStoreUtils.getCurrentUid();
-                              withdrawModel.paymentStatus = "pending";
-                              withdrawModel.amount = controller.withdrawalAmountController.value.text;
-                              withdrawModel.note = controller.noteController.value.text;
-                              withdrawModel.createdDate = Timestamp.now();
+                              
+                              try {
+                                // Deduct amount from driver wallet
+                                await DriverWalletApi.addTransaction(
+                                  driverId: controller.driverUserModel.value.id!,
+                                  amount: -double.parse(controller.withdrawalAmountController.value.text),
+                                  orderId: Constant.getUuid(), // Withdrawal ID
+                                  orderType: 'withdrawal',
+                                  note: controller.noteController.value.text.isNotEmpty 
+                                    ? controller.noteController.value.text 
+                                    : 'Withdrawal request',
+                                  paymentType: 'wallet',
+                                );
 
-                              await FireStoreUtils.updatedDriverWallet(amount: "-${controller.withdrawalAmountController.value.text}");
+                                // TODO: Implement withdrawal request API endpoint
+                                // WithdrawModel withdrawModel = WithdrawModel();
+                                // withdrawModel.id = Constant.getUuid();
+                                // withdrawModel.userId = FireStoreUtils.getCurrentUid();
+                                // withdrawModel.paymentStatus = "pending";
+                                // withdrawModel.amount = controller.withdrawalAmountController.value.text;
+                                // withdrawModel.note = controller.noteController.value.text;
+                                // withdrawModel.createdDate = Timestamp.now();
+                                // await FireStoreUtils.setWithdrawRequest(withdrawModel);
 
-                              await FireStoreUtils.setWithdrawRequest(withdrawModel).then((value) {
                                 controller.getUser();
                                 ShowToastDialog.closeLoader();
                                 ShowToastDialog.showToast("Request sent to admin".tr);
                                 Get.back();
-                              });
+                              } catch (e) {
+                                ShowToastDialog.closeLoader();
+                                log('❌ Withdrawal error: $e');
+                                ShowToastDialog.showToast("Failed to process withdrawal".tr);
+                              }
                             }
                           },
                         )

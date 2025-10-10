@@ -206,6 +206,8 @@ class SettingScreen extends StatelessWidget {
       child:  Text("OK".tr),
       onPressed: () async {
         ShowToastDialog.showLoader("Please wait".tr);
+        // TODO: Implement delete driver API endpoint
+        // For now, just delete Firebase Auth account
         await FireStoreUtils.deleteUser().then((value) {
           ShowToastDialog.closeLoader();
           if (value == true) {

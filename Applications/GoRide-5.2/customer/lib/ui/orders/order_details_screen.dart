@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:developer';
 import 'package:cached_network_image/cached_network_image.dart';
 // Google Fonts replaced with local fonts
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -27,6 +29,9 @@ import 'package:customer/themes/responsive.dart';
 import 'package:customer/utils/DarkThemeProvider.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/utils/fire_store_utils.dart';
+import 'package:customer/utils/order_api.dart';
+import 'package:customer/utils/order_bid_api.dart';
+import 'package:customer/utils/driver_api.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/widget/location_view.dart';
 // Google Fonts replaced with local fonts
@@ -42,6 +47,32 @@ import 'package:provider/provider.dart';
 
 import '../../widget/driver_view.dart';
 // Google Fonts replaced with local fonts
+
+/// Helper function to get driver from bid data
+Future<DriverUserModel?> _getDriverFromBid(Map<String, dynamic> bid) async {
+  try {
+    // Bid already contains driver info from JOIN
+    DriverUserModel driver = DriverUserModel();
+    driver.id = bid['driver_id'].toString();
+    driver.fullName = bid['driver_name'];
+    driver.profilePic = bid['driver_profile_pic'];
+    driver.phoneNumber = bid['driver_phone'];
+    driver.email = bid['driver_email'];
+    driver.reviewsSum = bid['reviews_sum']?.toString() ?? '0';
+    driver.reviewsCount = bid['reviews_count']?.toString() ?? '0';
+    
+    // Get full driver details from API for vehicle info
+    final driverResponse = await DriverApi.getProfile(driver.id!);
+    if (driverResponse['success'] == true && driverResponse['driver'] != null) {
+      return DriverUserModel.fromJson(driverResponse['driver']);
+    }
+    
+    return driver;
+  } catch (e) {
+    log('❌ Error getting driver from bid: $e');
+    return null;
+  }
+}
 
 class OrderDetailsScreen extends StatelessWidget {
   const OrderDetailsScreen({super.key});
@@ -79,21 +110,15 @@ class OrderDetailsScreen extends StatelessWidget {
                         borderRadius: const BorderRadius.only(topLeft: Radius.circular(25), topRight: Radius.circular(25))),
                     child: Padding(
                       padding: const EdgeInsets.only(top: 10),
-                      child: StreamBuilder(
-                        stream: FirebaseFirestore.instance.collection(CollectionName.orders).doc(controller.orderModel.value.id).snapshots(),
-                        builder: (context, snapshot) {
-                          if (snapshot.hasError) {
-                            return Center(child: Text('Something went wrong'.tr));
-                          }
-
-                          if (snapshot.connectionState == ConnectionState.waiting) {
-                            return Constant.loader();
-                          }
-
-                          OrderModel orderModel = OrderModel.fromJson((snapshot.data! as DocumentSnapshot).data()! as Map<String, dynamic>);
-                          return SingleChildScrollView(
-                            child: Column(
-                              children: [
+                      child: controller.isLoading.value
+                          ? Center(child: Constant.loader())
+                          : Builder(
+                              builder: (context) {
+                                // Use local variable for convenience
+                                final orderModel = controller.orderModel.value;
+                                return SingleChildScrollView(
+                                  child: Column(
+                                    children: [
                                 Padding(
                                   padding: const EdgeInsets.all(15.0),
                                   child: Column(
@@ -154,33 +179,50 @@ class OrderDetailsScreen extends StatelessWidget {
                                         title: "Cancel".tr,
                                         btnHeight: 44,
                                         onPress: () async {
-                                          List<dynamic> acceptDriverId = [];
-
-                                          orderModel.status = Constant.rideCanceled;
-                                          orderModel.acceptedDriverId = acceptDriverId;
-                                          await FireStoreUtils.setOrder(orderModel).then((value) {
+                                          try {
+                                            await OrderApi.cancelOrder(
+                                              orderId: orderModel.id ?? '',
+                                              cancellationReason: 'Customer cancelled'
+                                            );
                                             Get.back();
-                                          });
+                                          } catch (e) {
+                                            log('❌ Error cancelling order: $e');
+                                          }
                                         },
                                       )
                                     ],
                                   ),
                                 ),
-                                orderModel.acceptedDriverId == null || orderModel.acceptedDriverId!.isEmpty
-                                    ? Center(
-                                        child: Text("No driver Found".tr),
-                                      )
-                                    : Container(
-                                        color: Theme.of(context).colorScheme.background,
-                                        padding: const EdgeInsets.only(top: 10),
-                                        child: ListView.builder(
-                                          shrinkWrap: true,
-                                          itemCount: orderModel.acceptedDriverId!.length,
-                                          physics: const NeverScrollableScrollPhysics(),
-                                          itemBuilder: (context, index) {
-                                            return FutureBuilder<DriverUserModel?>(
-                                                future: FireStoreUtils.getDriver(orderModel.acceptedDriverId![index]),
-                                                builder: (context, snapshot) {
+                                FutureBuilder<List<dynamic>>(
+                                  future: OrderBidApi.getAcceptedBids(orderModel.id.toString()),
+                                  builder: (context, bidSnapshot) {
+                                    if (bidSnapshot.connectionState == ConnectionState.waiting) {
+                                      return Constant.loader();
+                                    }
+                                    
+                                    if (bidSnapshot.hasError || bidSnapshot.data == null) {
+                                      return Center(child: Text("No driver Found".tr));
+                                    }
+                                    
+                                    final response = bidSnapshot.data as Map<String, dynamic>;
+                                    if (response['success'] != true || response['bids'] == null || (response['bids'] as List).isEmpty) {
+                                      return Center(child: Text("No driver Found".tr));
+                                    }
+                                    
+                                    final bids = response['bids'] as List;
+                                    
+                                    return Container(
+                                      color: Theme.of(context).colorScheme.background,
+                                      padding: const EdgeInsets.only(top: 10),
+                                      child: ListView.builder(
+                                        shrinkWrap: true,
+                                        itemCount: bids.length,
+                                        physics: const NeverScrollableScrollPhysics(),
+                                        itemBuilder: (context, index) {
+                                          final bid = bids[index];
+                                          return FutureBuilder<DriverUserModel?>(
+                                              future: _getDriverFromBid(bid),
+                                              builder: (context, snapshot) {
                                                   switch (snapshot.connectionState) {
                                                     case ConnectionState.waiting:
                                                       return Constant.loader();
@@ -189,17 +231,11 @@ class OrderDetailsScreen extends StatelessWidget {
                                                         return Text(snapshot.error.toString());
                                                       } else {
                                                         DriverUserModel driverModel = snapshot.data!;
-                                                        return FutureBuilder<DriverIdAcceptReject?>(
-                                                            future: FireStoreUtils.getAcceptedOrders(orderModel.id.toString(), driverModel.id.toString()),
-                                                            builder: (context, snapshot) {
-                                                              switch (snapshot.connectionState) {
-                                                                case ConnectionState.waiting:
-                                                                  return Constant.loader();
-                                                                case ConnectionState.done:
-                                                                  if (snapshot.hasError) {
-                                                                    return Text(snapshot.error.toString());
-                                                                  } else {
-                                                                    DriverIdAcceptReject driverIdAcceptReject = snapshot.data!;
+                                                        // Create DriverIdAcceptReject from bid data
+                                                        DriverIdAcceptReject driverIdAcceptReject = DriverIdAcceptReject(
+                                                          driverId: bid['driver_id'].toString(),
+                                                          offerAmount: bid['offer_amount']?.toString() ?? '0',
+                                                        );
                                                                     return Padding(
                                                                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                                                                       child: Container(
@@ -358,7 +394,15 @@ class OrderDetailsScreen extends StatelessWidget {
                                                                                             title: 'Ride Canceled'.tr,
                                                                                             body: 'The passenger has canceled the ride. No action is required from your end.'.tr,
                                                                                             payload: {});
-                                                                                        await FireStoreUtils.setOrder(controller.orderModel.value);
+                                                                                        
+                                                                                        // Update order via API
+                                                                                        await OrderApi.updateOrder(
+                                                                                          orderId: controller.orderModel.value.id!,
+                                                                                          data: {
+                                                                                            'rejected_driver_ids': jsonEncode(rejectDriverId),
+                                                                                            'accepted_driver_ids': jsonEncode(acceptDriverId),
+                                                                                          },
+                                                                                        );
                                                                                       },
                                                                                     ),
                                                                                   ),
@@ -382,7 +426,19 @@ class OrderDetailsScreen extends StatelessWidget {
                                                                                         } else {
                                                                                           orderModel.acNonAcCharges = driverModel.vehicleInformation?.nonAcPerKmRate;
                                                                                         }
-                                                                                        FireStoreUtils.setOrder(orderModel);
+                                                                                        
+                                                                                        // Update order via API
+                                                                                        await OrderApi.updateOrder(
+                                                                                          orderId: orderModel.id!,
+                                                                                          data: {
+                                                                                            'driver_id': orderModel.driverId,
+                                                                                            'status': orderModel.status,
+                                                                                            'final_rate': orderModel.finalRate,
+                                                                                            'accepted_driver_ids': jsonEncode([]),
+                                                                                            'ac_non_ac_charges': orderModel.acNonAcCharges,
+                                                                                            'vehicle_information_data': jsonEncode(driverModel.vehicleInformation?.toJson() ?? {}),
+                                                                                          },
+                                                                                        );
 
                                                                                         await SendNotification.sendOneNotification(
                                                                                             token: driverModel.fcmToken.toString(),
@@ -402,24 +458,21 @@ class OrderDetailsScreen extends StatelessWidget {
                                                                         ),
                                                                       ),
                                                                     );
-                                                                  }
-                                                                default:
-                                                                  return Text('Error'.tr);
-                                                              }
-                                                            });
                                                       }
                                                     default:
                                                       return Text('Error'.tr);
                                                   }
                                                 });
-                                          },
-                                        ),
-                                      )
+                                        },
+                                      ),
+                                    );
+                                  },
+                                )
                               ],
                             ),
                           );
-                        },
-                      ),
+                              },
+                            ),
                     ),
                   ),
                 ),

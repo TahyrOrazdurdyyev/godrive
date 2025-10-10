@@ -42,6 +42,14 @@ import 'package:customer/utils/fire_store_utils.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/utils/utils.dart';
 // Google Fonts replaced with local fonts
+import 'package:customer/controller/order_screen_controller.dart';
+import 'package:customer/utils/user_api.dart';
+import 'package:customer/utils/driver_api.dart';
+import 'package:customer/utils/order_api.dart';
+import 'package:customer/utils/sos_api.dart';
+import 'package:get/get.dart';
+import 'dart:developer';
+// Google Fonts replaced with local fonts
 import 'package:customer/widget/driver_view.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/widget/location_view.dart';
@@ -62,7 +70,10 @@ class OrderScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeChange = Provider.of<DarkThemeProvider>(context);
-    return Scaffold(
+    return GetX<OrderScreenController>(
+      init: OrderScreenController(),
+      builder: (controller) {
+        return Scaffold(
       backgroundColor: AppColors.primary,
       body: Column(
         children: [
@@ -110,38 +121,17 @@ class OrderScreen extends StatelessWidget {
                         Expanded(
                           child: TabBarView(
                             children: [
-                              StreamBuilder<QuerySnapshot>(
-                                stream: FirebaseFirestore.instance
-                                    .collection(CollectionName.orders)
-                                    .where("userId", isEqualTo: FireStoreUtils.getCurrentUid())
-                                    .where("status", whereIn: [
-                                      Constant.ridePlaced,
-                                      Constant.rideInProgress,
-                                      Constant.rideComplete,
-                                      Constant.rideActive,
-                                      Constant.rideHoldAccepted,
-                                      Constant.rideHold,
-                                    ])
-                                    .where("paymentStatus", isEqualTo: false)
-                                    .orderBy("createdDate", descending: true)
-                                    .snapshots(),
-                                builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
-                                  if (snapshot.hasError) {
-                                    return Center(child: Text('Something went wrong'.tr));
-                                  }
-                                  if (snapshot.connectionState == ConnectionState.waiting) {
-                                    return Constant.loader();
-                                  }
-                                  return snapshot.data!.docs.isEmpty
-                                      ? Center(
-                                          child: Text("No active rides found".tr),
-                                        )
+                              // Active Orders from API
+                              controller.isLoadingActive.value
+                                  ? Center(child: Constant.loader())
+                                  : controller.activeOrders.isEmpty
+                                      ? Center(child: Text("No active rides found".tr))
                                       : ListView.builder(
-                                          itemCount: snapshot.data!.docs.length,
+                                          itemCount: controller.activeOrders.length,
                                           scrollDirection: Axis.vertical,
                                           shrinkWrap: true,
                                           itemBuilder: (context, index) {
-                                            OrderModel orderModel = OrderModel.fromJson(snapshot.data!.docs[index].data() as Map<String, dynamic>);
+                                            OrderModel orderModel = controller.activeOrders[index];
 
                                             return InkWell(
                                               onTap: () {
@@ -301,19 +291,29 @@ class OrderScreen extends StatelessWidget {
                                                                 Expanded(
                                                                   child: InkWell(
                                                                     onTap: () async {
-                                                                      UserModel? customer = await FireStoreUtils.getUserProfile(orderModel.userId.toString());
-                                                                      DriverUserModel? driver = await FireStoreUtils.getDriver(orderModel.driverId.toString());
+                                                                      try {
+                                                                        // Get customer data
+                                                                        final uid = FireStoreUtils.getCurrentUid();
+                                                                        final userResponse = await UserApi.getProfile(uid);
+                                                                        final customer = UserModel.fromJson(userResponse['user']);
+                                                                        
+                                                                        // Get driver data
+                                                                        final driverResponse = await DriverApi.getProfile(int.parse(orderModel.driverId ?? '0'));
+                                                                        final driver = DriverUserModel.fromJson(driverResponse['driver']);
 
-                                                                      Get.to(ChatScreens(
-                                                                        driverId: driver!.id,
-                                                                        customerId: customer!.id,
-                                                                        customerName: customer.fullName,
+                                                                        Get.to(ChatScreens(
+                                                                          driverId: driver.id,
+                                                                          customerId: customer.id,
+                                                                          customerName: customer.fullName,
                                                                         customerProfileImage: customer.profilePic,
                                                                         driverName: driver.fullName,
                                                                         driverProfileImage: driver.profilePic,
                                                                         orderId: orderModel.id,
                                                                         token: driver.fcmToken,
                                                                       ));
+                                                                      } catch (e) {
+                                                                        log('❌ Error loading chat data: $e');
+                                                                      }
                                                                     },
                                                                     child: Container(
                                                                       height: 44,
@@ -330,8 +330,13 @@ class OrderScreen extends StatelessWidget {
                                                                 Expanded(
                                                                   child: InkWell(
                                                                     onTap: () async {
-                                                                      DriverUserModel? driver = await FireStoreUtils.getDriver(orderModel.driverId.toString());
-                                                                      Constant.makePhoneCall("${driver!.countryCode}${driver.phoneNumber}");
+                                                                      try {
+                                                                        final driverResponse = await DriverApi.getProfile(int.parse(orderModel.driverId ?? '0'));
+                                                                        final driver = DriverUserModel.fromJson(driverResponse['driver']);
+                                                                        Constant.makePhoneCall("${driver.countryCode}${driver.phoneNumber}");
+                                                                      } catch (e) {
+                                                                        log('❌ Error loading driver: $e');
+                                                                      }
                                                                     },
                                                                     child: Container(
                                                                       height: 44,
@@ -385,18 +390,36 @@ class OrderScreen extends StatelessWidget {
                                                               title: "SOS".tr,
                                                               btnHeight: 44,
                                                               onPress: () async {
-                                                                await FireStoreUtils.getSOS(orderModel.id.toString()).then((value) {
-                                                                  if (value != null) {
-                                                                    ShowToastDialog.showToast("Your request is ${value.status}");
-                                                                  } else {
-                                                                    SosModel sosModel = SosModel();
-                                                                    sosModel.id = Constant.getUuid();
-                                                                    sosModel.orderId = orderModel.id;
-                                                                    sosModel.status = "Initiated";
-                                                                    sosModel.orderType = "city";
-                                                                    FireStoreUtils.setSOS(sosModel);
+                                                                try {
+                                                                  // Check if SOS already exists for this order
+                                                                  final response = await SosApi.getByOrder(
+                                                                    orderId: orderModel.id.toString(),
+                                                                    orderType: 'city',
+                                                                  );
+                                                                  
+                                                                  if (response['success'] == true && response['sos'] != null) {
+                                                                    ShowToastDialog.showToast("Your request is ${response['sos']['status']}");
                                                                   }
-                                                                });
+                                                                } catch (e) {
+                                                                  // SOS doesn't exist, create new one
+                                                                  try {
+                                                                    final uid = FireStoreUtils.getCurrentUid();
+                                                                    final userResponse = await UserApi.getProfile(uid);
+                                                                    
+                                                                    if (userResponse['success'] == true && userResponse['user'] != null) {
+                                                                      await SosApi.create(
+                                                                        userId: userResponse['user']['id'],
+                                                                        orderType: 'city',
+                                                                        orderId: orderModel.id,
+                                                                        status: 'initiated',
+                                                                      );
+                                                                      ShowToastDialog.showToast("SOS initiated successfully");
+                                                                    }
+                                                                  } catch (createError) {
+                                                                    log('❌ Error creating SOS: $createError');
+                                                                    ShowToastDialog.showToast("Failed to initiate SOS");
+                                                                  }
+                                                                }
                                                               },
                                                             )),
                                                         orderModel.status == Constant.rideInProgress
@@ -442,15 +465,21 @@ class OrderScreen extends StatelessWidget {
                                                                         ),
                                                                         TextButton(
                                                                           onPressed: () async {
-                                                                            ShowToastDialog.showLoader("Please wait...".tr);
-                                                                            orderModel.status = Constant.rideHold;
-                                                                            await FireStoreUtils.setOrder(orderModel).then((value) {
-                                                                              if (value == true) {
-                                                                                ShowToastDialog.closeLoader();
-                                                                                ShowToastDialog.showToast("Ride on Hold".tr);
-                                                                              }
-                                                                            });
-                                                                            Get.back();
+                                                                            try {
+                                                                              ShowToastDialog.showLoader("Please wait...".tr);
+                                                                              
+                                                                              await OrderApi.updateOrderStatus(
+                                                                                orderId: orderModel.id ?? '',
+                                                                                status: 'hold'
+                                                                              );
+                                                                              
+                                                                              ShowToastDialog.closeLoader();
+                                                                              ShowToastDialog.showToast("Ride on Hold".tr);
+                                                                              Get.back();
+                                                                            } catch (e) {
+                                                                              ShowToastDialog.closeLoader();
+                                                                              log('❌ Error updating order: $e');
+                                                                            }
                                                                           },
                                                                           child: Container(
                                                                               height: 40,
@@ -490,34 +519,18 @@ class OrderScreen extends StatelessWidget {
                                                 ),
                                               ),
                                             );
-                                          });
-                                },
-                              ),
-                              StreamBuilder<QuerySnapshot>(
-                                stream: FirebaseFirestore.instance
-                                    .collection(CollectionName.orders)
-                                    .where("userId", isEqualTo: FireStoreUtils.getCurrentUid())
-                                    .where("status", isEqualTo: Constant.rideComplete)
-                                    .where("paymentStatus", isEqualTo: true)
-                                    .orderBy("createdDate", descending: true)
-                                    .snapshots(),
-                                builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
-                                  if (snapshot.hasError) {
-                                    return Center(child: Text('Something went wrong'.tr));
-                                  }
-                                  if (snapshot.connectionState == ConnectionState.waiting) {
-                                    return Constant.loader();
-                                  }
-                                  return snapshot.data!.docs.isEmpty
-                                      ? Center(
-                                          child: Text("No completed rides found".tr),
-                                        )
+                                          }),
+                              // Completed Orders from API
+                              controller.isLoadingCompleted.value
+                                  ? Center(child: Constant.loader())
+                                  : controller.completedOrders.isEmpty
+                                      ? Center(child: Text("No completed rides found".tr))
                                       : ListView.builder(
-                                          itemCount: snapshot.data!.docs.length,
+                                          itemCount: controller.completedOrders.length,
                                           scrollDirection: Axis.vertical,
                                           shrinkWrap: true,
                                           itemBuilder: (context, index) {
-                                            OrderModel orderModel = OrderModel.fromJson(snapshot.data!.docs[index].data() as Map<String, dynamic>);
+                                            OrderModel orderModel = controller.completedOrders[index];
                                             return Padding(
                                               padding: const EdgeInsets.all(10),
                                               child: Container(
@@ -599,33 +612,18 @@ class OrderScreen extends StatelessWidget {
                                                     )),
                                               ),
                                             );
-                                          });
-                                },
-                              ),
-                              StreamBuilder<QuerySnapshot>(
-                                stream: FirebaseFirestore.instance
-                                    .collection(CollectionName.orders)
-                                    .where("userId", isEqualTo: FireStoreUtils.getCurrentUid())
-                                    .where("status", isEqualTo: Constant.rideCanceled)
-                                    .orderBy("createdDate", descending: true)
-                                    .snapshots(),
-                                builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
-                                  if (snapshot.hasError) {
-                                    return Center(child: Text('Something went wrong'.tr));
-                                  }
-                                  if (snapshot.connectionState == ConnectionState.waiting) {
-                                    return Constant.loader();
-                                  }
-                                  return snapshot.data!.docs.isEmpty
-                                      ? Center(
-                                          child: Text("No completed rides found".tr),
-                                        )
+                                          }),
+                              // Cancelled Orders from API
+                              controller.isLoadingCancelled.value
+                                  ? Center(child: Constant.loader())
+                                  : controller.cancelledOrders.isEmpty
+                                      ? Center(child: Text("No cancelled rides found".tr))
                                       : ListView.builder(
-                                          itemCount: snapshot.data!.docs.length,
+                                          itemCount: controller.cancelledOrders.length,
                                           scrollDirection: Axis.vertical,
                                           shrinkWrap: true,
                                           itemBuilder: (context, index) {
-                                            OrderModel orderModel = OrderModel.fromJson(snapshot.data!.docs[index].data() as Map<String, dynamic>);
+                                            OrderModel orderModel = controller.cancelledOrders[index];
                                             return Padding(
                                               padding: const EdgeInsets.all(10),
                                               child: Container(
@@ -696,9 +694,7 @@ class OrderScreen extends StatelessWidget {
                                                 ),
                                               ),
                                             );
-                                          });
-                                },
-                              ),
+                                          }),
                             ],
                           ),
                         )
@@ -711,6 +707,8 @@ class OrderScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+      },
     );
   }
 }

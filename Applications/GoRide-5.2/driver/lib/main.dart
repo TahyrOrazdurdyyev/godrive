@@ -17,9 +17,17 @@ import 'utils/Preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  
+  // Initialize Firebase BEFORE any controllers try to use it
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    print('✅ Firebase initialized successfully');
+  } catch (e) {
+    print('⚠️ Firebase initialization error (may already be initialized): $e');
+  }
+  
   await Preferences.initPref();
   EasyLoading.instance
     ..displayDuration = const Duration(seconds: 2)

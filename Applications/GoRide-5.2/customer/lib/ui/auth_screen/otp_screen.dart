@@ -5,6 +5,7 @@ import 'package:customer/constant/show_toast_dialog.dart';
 import 'package:customer/controller/otp_controller.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/model/user_model.dart';
+import 'package:customer/services/laravel_service.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/themes/app_colors.dart';
 // Google Fonts replaced with local fonts
@@ -109,30 +110,37 @@ class OtpScreen extends StatelessWidget {
                                   });
                                 } else {
                                   print("----->old user");
-                                  FireStoreUtils.userExitOrNot(value.user!.uid).then((userExit) async {
-                                    ShowToastDialog.closeLoader();
-                                    if (userExit == true) {
-                                      UserModel? userModel = await FireStoreUtils.getUserProfile(value.user!.uid);
-                                      if (userModel != null) {
-                                        if (userModel.isActive == true) {
-                                          Get.offAll(const DashBoardScreen());
-                                        } else {
-                                          await FirebaseAuth.instance.signOut();
-                                          ShowToastDialog.showToast("This user is disable please contact administrator".tr);
-                                        }
-                                      }
+                                  // Try to login existing user with Laravel API
+                                  UserModel? userModel = await LaravelService.loginUser(
+                                    firebaseUid: value.user!.uid,
+                                    email: value.user!.email ?? '',
+                                    fullName: value.user!.displayName ?? 'User',
+                                    phoneNumber: controller.phoneNumber.value,
+                                    countryCode: controller.countryCode.value,
+                                    loginType: 'phone',
+                                  );
+                                  
+                                  ShowToastDialog.closeLoader();
+                                  
+                                  if (userModel != null) {
+                                    if (userModel.isActive == true) {
+                                      Get.offAll(const DashBoardScreen());
                                     } else {
-                                      UserModel userModel = UserModel();
-                                      userModel.id = value.user!.uid;
-                                      userModel.countryCode = controller.countryCode.value;
-                                      userModel.phoneNumber = controller.phoneNumber.value;
-                                      userModel.loginType = Constant.phoneLoginType;
-
-                                      Get.to(const InformationScreen(), arguments: {
-                                        "userModel": userModel,
-                                      });
+                                      await FirebaseAuth.instance.signOut();
+                                      ShowToastDialog.showToast("This user is disabled. Please contact administrator".tr);
                                     }
-                                  });
+                                  } else {
+                                    // User not found in Laravel, redirect to information screen
+                                    UserModel newUserModel = UserModel();
+                                    newUserModel.id = value.user!.uid;
+                                    newUserModel.countryCode = controller.countryCode.value;
+                                    newUserModel.phoneNumber = controller.phoneNumber.value;
+                                    newUserModel.loginType = Constant.phoneLoginType;
+
+                                    Get.to(const InformationScreen(), arguments: {
+                                      "userModel": newUserModel,
+                                    });
+                                  }
                                 }
                               }).catchError((error) {
                                 ShowToastDialog.closeLoader();

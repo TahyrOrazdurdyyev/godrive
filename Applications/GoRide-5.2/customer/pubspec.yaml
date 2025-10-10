@@ -49,6 +49,9 @@ dependencies:
   flutter_html: any
   flutter_local_notifications: ^19.0.0
   flutter_osm_plugin: ^1.3.7
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  yandex_mapkit: ^4.0.0
   flutter_paypal: ^0.2.1
   flutter_polyline_points: ^2.1.0
   flutter_rating_bar: ^4.0.1
@@ -57,11 +60,12 @@ dependencies:
   flutter_native_contact_picker: ^0.0.10
   flutter_google_maps_webservices: ^1.1.1
   geocoding: ^3.0.0
+  geolocator: ^10.1.1
   get: ^4.7.2
   get_thumbnail_video: ^0.7.3
   google_fonts: ^6.2.1  # Temporarily removed due to network issues
   google_maps_flutter: ^2.11.0
-  google_maps_place_picker_mb: ^3.1.2
+  google_places_flutter: ^2.0.1
   google_sign_in: ^6.3.0
   googleapis_auth: ^1.6.0
   image_picker: ^1.1.2
@@ -81,6 +85,7 @@ dependencies:
   uuid: ^4.0.0
   video_player: ^2.9.3
   http: ^1.1.0
+  web_socket_channel: ^3.0.1
 
 dependency_overrides:
   webview_flutter: ^4.8.0

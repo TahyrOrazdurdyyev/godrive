@@ -9,6 +9,10 @@ import 'package:customer/ui/chat_screen/chat_screen.dart';
 import 'package:customer/ui/intercityOrders/intercity_payment_order_screen.dart';
 import 'package:customer/ui/orders/payment_order_screen.dart';
 import 'package:customer/utils/fire_store_utils.dart';
+import 'package:customer/utils/user_api.dart';
+import 'package:customer/utils/driver_api.dart';
+import 'package:customer/utils/order_api.dart';
+import 'package:customer/utils/intercity_order_api.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
@@ -67,29 +71,69 @@ class NotificationService {
       if (message.notification != null) {
         log(message.notification.toString());
         if (message.data['type'] == "chat") {
-          UserModel? customer = await FireStoreUtils.getUserProfile(message.data['customerId']);
-          DriverUserModel? driver = await FireStoreUtils.getDriver(message.data['driverId']);
+          UserModel? customer;
+          DriverUserModel? driver;
+          
+          try {
+            final customerResponse = await UserApi.getProfile(message.data['customerId']);
+            if (customerResponse['success'] == true && customerResponse['user'] != null) {
+              customer = UserModel.fromJson(customerResponse['user']);
+            }
+            
+            final driverResponse = await DriverApi.getProfile(message.data['driverId']);
+            if (driverResponse['success'] == true && driverResponse['driver'] != null) {
+              driver = DriverUserModel.fromJson(driverResponse['driver']);
+            }
+          } catch (e) {
+            log('❌ Error loading user/driver for chat: $e');
+          }
 
-          Get.to(ChatScreens(
-            driverId: driver!.id,
-            customerId: customer!.id,
-            customerName: customer.fullName,
-            customerProfileImage: customer.profilePic,
-            driverName: driver.fullName,
-            driverProfileImage: driver.profilePic,
-            orderId: message.data['orderId'],
-            token: driver.fcmToken,
-          ));
+          if (customer != null && driver != null) {
+            Get.to(ChatScreens(
+              driverId: driver.id,
+              customerId: customer.id,
+              customerName: customer.fullName,
+              customerProfileImage: customer.profilePic,
+              driverName: driver.fullName,
+              driverProfileImage: driver.profilePic,
+              orderId: message.data['orderId'],
+              token: driver.fcmToken,
+            ));
+          }
         } else if (message.data['type'] == "city_order_complete") {
-          OrderModel? orderModel = await FireStoreUtils.getOrder(message.data['orderId']);
-          Get.to(const PaymentOrderScreen(), arguments: {
-            "orderModel": orderModel,
-          });
-        }else if (message.data['type'] == "intercity_order_complete") {
-          InterCityOrderModel? orderModel = await FireStoreUtils.getInterCityOrder(message.data['orderId']);
-          Get.to(const InterCityPaymentOrderScreen(), arguments: {
-            "orderModel": orderModel,
-          });
+          OrderModel? orderModel;
+          
+          try {
+            final response = await OrderApi.getOrderById(message.data['orderId']);
+            if (response['success'] == true && response['order'] != null) {
+              orderModel = OrderModel.fromJson(response['order']);
+            }
+          } catch (e) {
+            log('❌ Error loading order: $e');
+          }
+          
+          if (orderModel != null) {
+            Get.to(const PaymentOrderScreen(), arguments: {
+              "orderModel": orderModel,
+            });
+          }
+        } else if (message.data['type'] == "intercity_order_complete") {
+          InterCityOrderModel? orderModel;
+          
+          try {
+            final response = await InterCityOrderApi.getOrderById(message.data['orderId']);
+            if (response['success'] == true && response['order'] != null) {
+              orderModel = InterCityOrderModel.fromJson(response['order']);
+            }
+          } catch (e) {
+            log('❌ Error loading intercity order: $e');
+          }
+          
+          if (orderModel != null) {
+            Get.to(const InterCityPaymentOrderScreen(), arguments: {
+              "orderModel": orderModel,
+            });
+          }
         }
       }
     });

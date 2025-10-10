@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:driver/constant/constant.dart';
@@ -8,6 +9,7 @@ import 'package:driver/themes/app_colors.dart';
 import 'package:driver/themes/button_them.dart';
 import 'package:driver/themes/text_field_them.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/review_api.dart';
 import 'package:driver/widget/my_separator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
@@ -129,41 +131,34 @@ class ReviewScreen extends StatelessWidget {
                                     if (controller.rating.value > 0 && controller.commentController.value.text.isNotEmpty) {
                                       ShowToastDialog.showLoader("Please wait".tr);
 
-                                      await FireStoreUtils.getCustomer(controller.type.value == "orderModel"
-                                              ? controller.orderModel.value.userId.toString()
-                                              : controller.intercityOrderModel.value.userId.toString())
-                                          .then((value) async {
-                                        if (value != null) {
-                                          UserModel userModel = value;
+                                      try {
+                                        final orderId = controller.type.value == "orderModel" 
+                                            ? controller.orderModel.value.id 
+                                            : controller.intercityOrderModel.value.id;
+                                        final orderType = controller.type.value == "orderModel" ? "city" : "intercity";
+                                        final driverId = FireStoreUtils.getCurrentUid();
+                                        final customerId = controller.type.value == "orderModel"
+                                            ? controller.orderModel.value.userId.toString()
+                                            : controller.intercityOrderModel.value.userId.toString();
 
-                                          if (controller.reviewModel.value.id != null) {
-                                            userModel.reviewsSum =
-                                                (double.parse(userModel.reviewsSum.toString()) - double.parse(controller.reviewModel.value.rating.toString())).toString();
-                                            userModel.reviewsCount = (double.parse(userModel.reviewsCount.toString()) - 1).toString();
-                                          }
-                                          userModel.reviewsSum = (double.parse(userModel.reviewsSum.toString()) + double.parse(controller.rating.value.toString())).toString();
-                                          userModel.reviewsCount = (double.parse(userModel.reviewsCount.toString()) + 1).toString();
-                                          await FireStoreUtils.updateUser(userModel);
-                                        }
-                                      });
+                                        // Create review via API (customer rating is auto-updated on backend)
+                                        await ReviewApi.createReview(
+                                          orderId: orderId!,
+                                          orderType: orderType,
+                                          driverId: driverId,
+                                          customerId: customerId,
+                                          rating: controller.rating.value.toDouble(),
+                                          comment: controller.commentController.value.text,
+                                        );
 
-                                      controller.reviewModel.value.id =
-                                          controller.type.value == "orderModel" ? controller.orderModel.value.id : controller.intercityOrderModel.value.id;
-                                      controller.reviewModel.value.comment = controller.commentController.value.text;
-                                      controller.reviewModel.value.rating = controller.rating.value.toString();
-                                      controller.reviewModel.value.customerId = FireStoreUtils.getCurrentUid();
-                                      controller.reviewModel.value.driverId =
-                                          controller.type.value == "orderModel" ? controller.orderModel.value.driverId : controller.intercityOrderModel.value.driverId;
-                                      controller.reviewModel.value.date = Timestamp.now();
-                                      controller.reviewModel.value.type = controller.type.value == "orderModel" ? "city" : "intercity";
-
-                                      FireStoreUtils.setReview(controller.reviewModel.value).then((value) {
-                                        if (value != null && value == true) {
-                                          ShowToastDialog.closeLoader();
-                                          ShowToastDialog.showToast("Review submit successfully".tr);
-                                          Get.back();
-                                        }
-                                      });
+                                        ShowToastDialog.closeLoader();
+                                        ShowToastDialog.showToast("Review submit successfully".tr);
+                                        Get.back();
+                                      } catch (e) {
+                                        ShowToastDialog.closeLoader();
+                                        log('❌ Submit review error: $e');
+                                        ShowToastDialog.showToast("Failed to submit review".tr);
+                                      }
                                     } else {
                                       ShowToastDialog.showToast("Please give rate in star and add feedback comment.".tr);
                                     }

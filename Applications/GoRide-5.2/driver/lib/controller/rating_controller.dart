@@ -1,7 +1,11 @@
+import 'dart:developer';
 import 'package:driver/model/intercity_order_model.dart';
 import 'package:driver/model/order_model.dart';
 import 'package:driver/model/user_model.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/driver_api.dart';
+import 'package:driver/utils/customer_api.dart';
+import 'package:driver/utils/review_api.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -37,18 +41,27 @@ class RatingController extends GetxController {
         intercityOrderModel.value = argumentData['interCityOrderModel'];
       }
     }
-    await FireStoreUtils.getCustomer(type.value == "orderModel" ? orderModel.value.userId.toString() : intercityOrderModel.value.userId.toString()).then((value) {
-      if (value != null) {
-        userModel.value = value;
+    try {
+      // Get customer
+      final customerId = type.value == "orderModel" ? orderModel.value.userId.toString() : intercityOrderModel.value.userId.toString();
+      final customerResponse = await CustomerApi.getCustomerProfile(customerId);
+      if (customerResponse['success'] == true && customerResponse['customer'] != null) {
+        userModel.value = UserModel.fromJson(customerResponse['customer']);
       }
-    });
-    await FireStoreUtils.getReview(type.value == "orderModel" ? orderModel.value.id.toString() : intercityOrderModel.value.id.toString()).then((value) {
-      if (value != null) {
-        reviewModel.value = value;
+
+      // Get review
+      final orderId = type.value == "orderModel" ? orderModel.value.id.toString() : intercityOrderModel.value.id.toString();
+      final orderType = type.value == "orderModel" ? "city" : "intercity";
+      final reviewResponse = await ReviewApi.getReviewByOrder(orderId, orderType: orderType);
+      if (reviewResponse['success'] == true && reviewResponse['review'] != null) {
+        reviewModel.value = ReviewModel.fromJson(reviewResponse['review']);
         rating.value = double.parse(reviewModel.value.rating.toString());
         commentController.value.text = reviewModel.value.comment.toString();
       }
-    });
+    } catch (e) {
+      log('❌ Load rating data error: $e');
+    }
+    
     isLoading.value = false;
     update();
   }

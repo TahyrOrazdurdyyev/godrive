@@ -9,8 +9,8 @@ class BannerModel {
   BannerModel.fromJson(Map<String, dynamic> json) {
     image = json['image'];
     enable = json['enable'];
-    id = json['id'];
-    position = json['position'];
+    id = json['id'].toString();
+    position = json['position'].toString();
   }
 
   Map<String, dynamic> toJson() {

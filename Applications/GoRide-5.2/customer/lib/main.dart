@@ -13,6 +13,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
+import 'package:yandex_mapkit/yandex_mapkit.dart';
+import 'package:customer/constant/constant.dart';
 // Google Fonts replaced with local fonts
 
 import 'utils/Preferences.dart';
@@ -20,24 +22,14 @@ import 'utils/Preferences.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // TEMPORARY: Firebase disabled for offline mode
-  // try {
-  //   if (Platform.isIOS) {
-  //     await Firebase.initializeApp(
-  //       options: DefaultFirebaseOptions.currentPlatform,
-  //     );
-  //   } else {
-  //     await Firebase.initializeApp(
-  //       name: 'goRide',
-  //       options: DefaultFirebaseOptions.currentPlatform,
-  //     );
-  //   }
-  // } catch (e) {
-  //   // Fallback for web platform
-  //   await Firebase.initializeApp(
-  //     options: DefaultFirebaseOptions.currentPlatform,
-  //   );
-  // }
+  // Initialize Firebase
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    debugPrint("Firebase initialization error: $e");
+  }
 
   await Preferences.initPref();
   

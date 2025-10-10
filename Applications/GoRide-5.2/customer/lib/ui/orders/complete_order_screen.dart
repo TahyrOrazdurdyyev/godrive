@@ -162,20 +162,9 @@ class CompleteOrderScreen extends StatelessWidget {
                                           const SizedBox(
                                             height: 10,
                                           ),
-                                          FutureBuilder<DriverUserModel?>(
-                                              future: FireStoreUtils.getDriver(controller.orderModel.value.driverId.toString()),
-                                              builder: (context, snapshot) {
-                                                switch (snapshot.connectionState) {
-                                                  case ConnectionState.waiting:
-                                                    return Constant.loader();
-                                                  case ConnectionState.done:
-                                                    if (snapshot.hasError) {
-                                                      return Text(snapshot.error.toString());
-                                                    } else if (snapshot.data == null) {
-                                                      return SizedBox();
-                                                    } else {
-                                                      DriverUserModel driverModel = snapshot.data!;
-                                                      return Container(
+                                          controller.driverModel.value.id == null
+                                              ? SizedBox()
+                                              : Container(
                                                         decoration: BoxDecoration(
                                                           color: themeChange.getThem() ? AppColors.darkContainerBackground : AppColors.containerBackground,
                                                           borderRadius: const BorderRadius.all(Radius.circular(10)),
@@ -209,7 +198,7 @@ class CompleteOrderScreen extends StatelessWidget {
                                                                         width: 10,
                                                                       ),
                                                                       Text(
-                                                                        Constant.localizationName(driverModel.vehicleInformation!.vehicleType),
+                                                                        Constant.localizationName(controller.driverModel.value.vehicleInformation!.vehicleType),
                                                                         style: TextStyle(fontWeight: FontWeight.w600),
                                                                       )
                                                                     ],
@@ -225,7 +214,7 @@ class CompleteOrderScreen extends StatelessWidget {
                                                                         width: 10,
                                                                       ),
                                                                       Text(
-                                                                        driverModel.vehicleInformation!.vehicleColor.toString(),
+                                                                        controller.driverModel.value.vehicleInformation!.vehicleColor.toString(),
                                                                         style: TextStyle(fontWeight: FontWeight.w600),
                                                                       )
                                                                     ],
@@ -241,7 +230,7 @@ class CompleteOrderScreen extends StatelessWidget {
                                                                         width: 10,
                                                                       ),
                                                                       Text(
-                                                                        driverModel.vehicleInformation!.vehicleNumber.toString(),
+                                                                        controller.driverModel.value.vehicleInformation!.vehicleNumber.toString(),
                                                                         style: TextStyle(fontWeight: FontWeight.w600),
                                                                       )
                                                                     ],
@@ -269,12 +258,7 @@ class CompleteOrderScreen extends StatelessWidget {
                                                             ],
                                                           ),
                                                         ),
-                                                      );
-                                                    }
-                                                  default:
-                                                    return Text('Error'.tr);
-                                                }
-                                              }),
+                                                      ),
                                           const SizedBox(
                                             height: 20,
                                           ),

@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 class UserModel {
   String? fullName;
   String? id;
@@ -13,25 +11,27 @@ class UserModel {
   String? reviewsSum;
   String? walletAmount;
   bool? isActive;
-  Timestamp? createdAt;
+  String? createdAt;
 
   UserModel(
       {this.fullName, this.id, this.email, this.loginType, this.profilePic, this.fcmToken, this.countryCode, this.phoneNumber, this.reviewsCount, this.reviewsSum, this.isActive, this.walletAmount,this.createdAt});
 
   UserModel.fromJson(Map<String, dynamic> json) {
-    fullName = json['fullName'];
-    id = json['id'];
+    // Handle both Firebase and Laravel formats
+    fullName = json['full_name'] ?? json['fullName'];
+    id = json['firebase_uid'] ?? json['id']?.toString();
     email = json['email'];
-    loginType = json['loginType'];
-    profilePic = json['profilePic'];
-    fcmToken = json['fcmToken'];
-    countryCode = json['countryCode'];
-    phoneNumber = json['phoneNumber'];
-    reviewsCount = json['reviewsCount'] ?? "0.0";
-    reviewsSum = json['reviewsSum'] ?? "0.0";
-    isActive = json['isActive'];
-    walletAmount = json['walletAmount'] ?? "0";
-    createdAt = json['createdAt'];
+    loginType = json['login_type'] ?? json['loginType'];
+    profilePic = json['profile_pic'] ?? json['profilePic'];
+    fcmToken = json['fcm_token'] ?? json['fcmToken'];
+    countryCode = json['country_code'] ?? json['countryCode'];
+    phoneNumber = json['phone_number'] ?? json['phoneNumber'];
+    reviewsCount = json['reviews_count']?.toString() ?? json['reviewsCount'] ?? "0.0";
+    reviewsSum = json['reviews_sum']?.toString() ?? json['reviewsSum'] ?? "0.0";
+    isActive = json['is_active'] ?? json['isActive'];
+    walletAmount = json['wallet_amount']?.toString() ?? json['walletAmount'] ?? "0";
+    // Store created_at as string (no Firebase Timestamp needed)
+    createdAt = json['created_at'] ?? json['createdAt'];
   }
 
   Map<String, dynamic> toJson() {
