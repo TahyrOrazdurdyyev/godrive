@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:driver/constant/collection_name.dart';
 import 'package:driver/constant/constant.dart';
@@ -16,6 +17,9 @@ import 'package:driver/ui/home_screens/live_tracking_screen.dart';
 import 'package:driver/ui/intercity_screen/pacel_details_screen.dart';
 import 'package:driver/utils/DarkThemeProvider.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/customer_api.dart';
+import 'package:driver/utils/driver_api.dart';
+import 'package:driver/utils/intercity_order_api.dart';
 import 'package:driver/utils/utils.dart';
 import 'package:driver/widget/location_view.dart';
 import 'package:driver/widget/user_view.dart';
@@ -218,26 +222,34 @@ class ActiveIntercityOrderScreen extends StatelessWidget {
                                                               btnHeight: 44,
                                                               iconVisibility: false,
                                                               onPress: () async {
-                                                                orderModel.status = Constant.rideComplete;
+                                                                try {
+                                                                  // Update order status
+                                                                  await InterCityOrderApi.update(
+                                                                    orderId: orderModel.id!,
+                                                                    data: {'status': Constant.rideComplete},
+                                                                  );
+                                                                  orderModel.status = Constant.rideComplete;
 
-                                                                await FireStoreUtils.getCustomer(orderModel.userId.toString()).then((value) async {
-                                                                  if (value != null) {
-                                                                    Map<String, dynamic> playLoad = <String, dynamic>{"type": "intercity_order_complete", "orderId": orderModel.id};
-
-                                                                    await SendNotification.sendOneNotification(
-                                                                        token: value.fcmToken.toString(),
-                                                                        title: 'Ride complete!'.tr,
-                                                                        body: 'Please complete your payment.'.tr,
-                                                                        payload: playLoad);
+                                                                  // Send notification to customer
+                                                                  final customerResponse = await CustomerApi.getCustomerProfile(orderModel.userId.toString());
+                                                                  if (customerResponse['success'] == true && customerResponse['customer'] != null) {
+                                                                    final customer = customerResponse['customer'];
+                                                                    if (customer['fcm_token'] != null) {
+                                                                      Map<String, dynamic> playLoad = <String, dynamic>{"type": "intercity_order_complete", "orderId": orderModel.id};
+                                                                      await SendNotification.sendOneNotification(
+                                                                          token: customer['fcm_token'].toString(),
+                                                                          title: 'Ride complete!'.tr,
+                                                                          body: 'Please complete your payment.'.tr,
+                                                                          payload: playLoad);
+                                                                    }
                                                                   }
-                                                                });
 
-                                                                await FireStoreUtils.setInterCityOrder(orderModel).then((value) {
-                                                                  if (value == true) {
-                                                                    ShowToastDialog.showToast("Ride Complete successfully".tr);
-                                                                    controller.frightController.selectedIndex.value = 3;
-                                                                  }
-                                                                });
+                                                                  ShowToastDialog.showToast("Ride Complete successfully".tr);
+                                                                  controller.frightController.selectedIndex.value = 3;
+                                                                } catch (e) {
+                                                                  log('❌ Complete ride error: $e');
+                                                                  ShowToastDialog.showToast("Failed to complete ride".tr);
+                                                                }
                                                               },
                                                             )
                                                           : ButtonThem.buildBorderButton(
@@ -257,19 +269,28 @@ class ActiveIntercityOrderScreen extends StatelessWidget {
                                                       children: [
                                                         InkWell(
                                                           onTap: () async {
-                                                            UserModel? customer = await FireStoreUtils.getCustomer(orderModel.userId.toString());
-                                                            DriverUserModel? driver = await FireStoreUtils.getDriverProfile(orderModel.driverId.toString());
+                                                            try {
+                                                              final customerResponse = await CustomerApi.getCustomerProfile(orderModel.userId.toString());
+                                                              final driverResponse = await DriverApi.getProfile(orderModel.driverId.toString());
+                                                              
+                                                              if (customerResponse['success'] == true && driverResponse['success'] == true) {
+                                                                final customer = UserModel.fromJson(customerResponse['customer']);
+                                                                final driver = DriverUserModel.fromJson(driverResponse['driver']);
 
-                                                            Get.to(ChatScreens(
-                                                              driverId: driver!.id,
-                                                              customerId: customer!.id,
-                                                              customerName: customer.fullName,
-                                                              customerProfileImage: customer.profilePic,
-                                                              driverName: driver.fullName,
-                                                              driverProfileImage: driver.profilePic,
-                                                              orderId: orderModel.id,
-                                                              token: customer.fcmToken,
-                                                            ));
+                                                                Get.to(ChatScreens(
+                                                                  driverId: driver.id,
+                                                                  customerId: customer.id,
+                                                                  customerName: customer.fullName,
+                                                                  customerProfileImage: customer.profilePic,
+                                                                  driverName: driver.fullName,
+                                                                  driverProfileImage: driver.profilePic,
+                                                                  orderId: orderModel.id,
+                                                                  token: customer.fcmToken,
+                                                                ));
+                                                              }
+                                                            } catch (e) {
+                                                              log('❌ Chat error: $e');
+                                                            }
                                                           },
                                                           child: Container(
                                                             height: 44,
@@ -285,8 +306,15 @@ class ActiveIntercityOrderScreen extends StatelessWidget {
                                                         ),
                                                         InkWell(
                                                           onTap: () async {
-                                                            UserModel? customer = await FireStoreUtils.getCustomer(orderModel.userId.toString());
-                                                            Constant.makePhoneCall("${customer!.countryCode}${customer.phoneNumber}");
+                                                            try {
+                                                              final customerResponse = await CustomerApi.getCustomerProfile(orderModel.userId.toString());
+                                                              if (customerResponse['success'] == true && customerResponse['customer'] != null) {
+                                                                final customer = UserModel.fromJson(customerResponse['customer']);
+                                                                Constant.makePhoneCall("${customer.countryCode}${customer.phoneNumber}");
+                                                              }
+                                                            } catch (e) {
+                                                              log('❌ Call error: $e');
+                                                            }
                                                           },
                                                           child: Container(
                                                             height: 44,
@@ -366,24 +394,35 @@ class ActiveIntercityOrderScreen extends StatelessWidget {
               if (orderModel.otp.toString() == controller.otpController.value.text) {
                 Get.back();
                 ShowToastDialog.showLoader("Please wait...".tr);
-                orderModel.status = Constant.rideInProgress;
+                
+                try {
+                  // Update order status
+                  await InterCityOrderApi.update(
+                    orderId: orderModel.id!,
+                    data: {'status': Constant.rideInProgress},
+                  );
+                  orderModel.status = Constant.rideInProgress;
 
-                await FireStoreUtils.getCustomer(orderModel.userId.toString()).then((value) async {
-                  if (value != null) {
-                    await SendNotification.sendOneNotification(
-                        token: value.fcmToken.toString(),
-                        title: 'Ride Started'.tr,
-                        body: 'The ride has officially started. Please follow the designated route to the destination.'.tr,
-                        payload: {});
+                  // Send notification to customer
+                  final customerResponse = await CustomerApi.getCustomerProfile(orderModel.userId.toString());
+                  if (customerResponse['success'] == true && customerResponse['customer'] != null) {
+                    final customer = customerResponse['customer'];
+                    if (customer['fcm_token'] != null) {
+                      await SendNotification.sendOneNotification(
+                          token: customer['fcm_token'].toString(),
+                          title: 'Ride Started'.tr,
+                          body: 'The ride has officially started. Please follow the designated route to the destination.'.tr,
+                          payload: {});
+                    }
                   }
-                });
 
-                await FireStoreUtils.setInterCityOrder(orderModel).then((value) {
-                  if (value == true) {
-                    ShowToastDialog.closeLoader();
-                    ShowToastDialog.showToast("Customer pickup successfully".tr);
-                  }
-                });
+                  ShowToastDialog.closeLoader();
+                  ShowToastDialog.showToast("Customer pickup successfully".tr);
+                } catch (e) {
+                  ShowToastDialog.closeLoader();
+                  log('❌ Pickup error: $e');
+                  ShowToastDialog.showToast("Failed to pickup customer".tr);
+                }
               } else {
                 ShowToastDialog.showToast("OTP Invalid".tr);
               }

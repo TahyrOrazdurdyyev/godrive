@@ -15,6 +15,7 @@ import 'package:driver/ui/subscription_plan_screen/subscription_list_screen.dart
 import 'package:driver/ui/terms_and_condition/terms_and_condition_screen.dart';
 import 'package:driver/utils/DarkThemeProvider.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/driver_api.dart';
 import 'package:driver/utils/notification_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/gestures.dart';
@@ -139,7 +140,7 @@ class LoginScreen extends StatelessWidget {
                           iconAssetImage: 'assets/icons/ic_google.png',
                           onPress: () async {
                             ShowToastDialog.showLoader("Please wait".tr);
-                            await controller.signInWithGoogle().then((value) {
+                            await controller.signInWithGoogle().then((value) async {
                               ShowToastDialog.closeLoader();
                               if (value != null) {
                                 if (value.additionalUserInfo!.isNewUser) {
@@ -157,47 +158,53 @@ class LoginScreen extends StatelessWidget {
                                   });
                                 } else {
                                   log("----->old user");
-                                  FireStoreUtils.userExitOrNot(value.user!.uid).then((userExit) async {
-                                    if (userExit == true) {
+                                  try {
+                                    // Check if driver exists in database
+                                    final driverResponse = await DriverApi.getProfile(value.user!.uid);
+                                    if (driverResponse['success'] == true && driverResponse['driver'] != null) {
+                                      // Update FCM token
                                       String token = await NotificationService.getToken();
-                                      DriverUserModel userModel = DriverUserModel();
+                                      await DriverApi.updateFcmToken(
+                                        uid: value.user!.uid,
+                                        fcmToken: token,
+                                      );
 
-                                      userModel.fcmToken = token;
-                                      await FireStoreUtils.updateDriverUser(userModel);
-                                      await FireStoreUtils.getDriverProfile(FirebaseAuth.instance.currentUser!.uid).then(
-                                        (value) {
-                                          if (value != null) {
-                                            DriverUserModel userModel = value;
-                                            bool isPlanExpire = false;
-                                            if (userModel.subscriptionPlan?.id != null) {
-                                              if (userModel.subscriptionExpiryDate == null) {
-                                                if (userModel.subscriptionPlan?.expiryDay == '-1') {
-                                                  isPlanExpire = false;
-                                                } else {
-                                                  isPlanExpire = true;
-                                                }
-                                              } else {
-                                                DateTime expiryDate = userModel.subscriptionExpiryDate!.toDate();
-                                                isPlanExpire = expiryDate.isBefore(DateTime.now());
-                                              }
+                                      // Get fresh driver profile
+                                      final freshResponse = await DriverApi.getProfile(FirebaseAuth.instance.currentUser!.uid);
+                                      if (freshResponse['success'] == true && freshResponse['driver'] != null) {
+                                        DriverUserModel userModel = DriverUserModel.fromJson(freshResponse['driver']);
+                                        
+                                        // Check subscription plan
+                                        bool isPlanExpire = false;
+                                        if (userModel.subscriptionPlan?.id != null) {
+                                          if (userModel.subscriptionExpiryDate == null) {
+                                            if (userModel.subscriptionPlan?.expiryDay == '-1') {
+                                              isPlanExpire = false;
                                             } else {
                                               isPlanExpire = true;
                                             }
-                                            if (userModel.subscriptionPlanId == null || isPlanExpire == true) {
-                                              if (Constant.adminCommission?.isEnabled == false && Constant.isSubscriptionModelApplied == false) {
-                                                ShowToastDialog.closeLoader();
-                                                Get.offAll(const DashBoardScreen());
-                                              } else {
-                                                ShowToastDialog.closeLoader();
-                                                Get.offAll(const SubscriptionListScreen(), arguments: {"isShow": true});
-                                              }
-                                            } else {
-                                              Get.offAll(const DashBoardScreen());
-                                            }
+                                          } else {
+                                            DateTime expiryDate = userModel.subscriptionExpiryDate!.toDate();
+                                            isPlanExpire = expiryDate.isBefore(DateTime.now());
                                           }
-                                        },
-                                      );
+                                        } else {
+                                          isPlanExpire = true;
+                                        }
+                                        
+                                        ShowToastDialog.closeLoader();
+                                        if (userModel.subscriptionPlanId == null || isPlanExpire == true) {
+                                          if (Constant.adminCommission?.isEnabled == false && Constant.isSubscriptionModelApplied == false) {
+                                            Get.offAll(const DashBoardScreen());
+                                          } else {
+                                            Get.offAll(const SubscriptionListScreen(), arguments: {"isShow": true});
+                                          }
+                                        } else {
+                                          Get.offAll(const DashBoardScreen());
+                                        }
+                                      }
                                     } else {
+                                      // New driver - go to registration
+                                      ShowToastDialog.closeLoader();
                                       DriverUserModel userModel = DriverUserModel();
                                       userModel.id = value.user!.uid;
                                       userModel.email = value.user!.email;
@@ -209,7 +216,11 @@ class LoginScreen extends StatelessWidget {
                                         "userModel": userModel,
                                       });
                                     }
-                                  });
+                                  } catch (e) {
+                                    ShowToastDialog.closeLoader();
+                                    log('❌ Login error: $e');
+                                    ShowToastDialog.showToast("Login failed".tr);
+                                  }
                                 }
                               }
                             });
@@ -228,7 +239,7 @@ class LoginScreen extends StatelessWidget {
                               iconColor: themeChange.getThem() ? AppColors.darkModePrimary : Colors.black,
                               onPress: () async {
                                 ShowToastDialog.showLoader("Please wait".tr);
-                                await controller.signInWithApple().then((value) {
+                                await controller.signInWithApple().then((value) async {
                                   ShowToastDialog.closeLoader();
                                   if (value != null) {
                                     Map<String, dynamic> map = value;
@@ -250,42 +261,43 @@ class LoginScreen extends StatelessWidget {
                                       });
                                     } else {
                                       log("----->old user");
-                                      FireStoreUtils.userExitOrNot(userCredential.user!.uid).then((userExit) async {
-                                        if (userExit == true) {
-                                          await FireStoreUtils.getDriverProfile(FirebaseAuth.instance.currentUser!.uid).then(
-                                            (value) {
-                                              if (value != null) {
-                                                DriverUserModel userModel = value;
-                                                bool isPlanExpire = false;
-                                                if (userModel.subscriptionPlan?.id != null) {
-                                                  if (userModel.subscriptionExpiryDate == null) {
-                                                    if (userModel.subscriptionPlan?.expiryDay == '-1') {
-                                                      isPlanExpire = false;
-                                                    } else {
-                                                      isPlanExpire = true;
-                                                    }
-                                                  } else {
-                                                    DateTime expiryDate = userModel.subscriptionExpiryDate!.toDate();
-                                                    isPlanExpire = expiryDate.isBefore(DateTime.now());
-                                                  }
-                                                } else {
-                                                  isPlanExpire = true;
-                                                }
-                                                if (userModel.subscriptionPlanId == null || isPlanExpire == true) {
-                                                  if (Constant.adminCommission?.isEnabled == false && Constant.isSubscriptionModelApplied == false) {
-                                                    ShowToastDialog.closeLoader();
-                                                    Get.offAll(const DashBoardScreen());
-                                                  } else {
-                                                    ShowToastDialog.closeLoader();
-                                                    Get.offAll(const SubscriptionListScreen(), arguments: {"isShow": true});
-                                                  }
-                                                } else {
-                                                  Get.offAll(const DashBoardScreen());
-                                                }
+                                      try {
+                                        // Check if driver exists in database
+                                        final driverResponse = await DriverApi.getProfile(userCredential.user!.uid);
+                                        if (driverResponse['success'] == true && driverResponse['driver'] != null) {
+                                          // Get driver profile
+                                          DriverUserModel userModel = DriverUserModel.fromJson(driverResponse['driver']);
+                                          
+                                          // Check subscription plan
+                                          bool isPlanExpire = false;
+                                          if (userModel.subscriptionPlan?.id != null) {
+                                            if (userModel.subscriptionExpiryDate == null) {
+                                              if (userModel.subscriptionPlan?.expiryDay == '-1') {
+                                                isPlanExpire = false;
+                                              } else {
+                                                isPlanExpire = true;
                                               }
-                                            },
-                                          );
+                                            } else {
+                                              DateTime expiryDate = userModel.subscriptionExpiryDate!.toDate();
+                                              isPlanExpire = expiryDate.isBefore(DateTime.now());
+                                            }
+                                          } else {
+                                            isPlanExpire = true;
+                                          }
+                                          
+                                          ShowToastDialog.closeLoader();
+                                          if (userModel.subscriptionPlanId == null || isPlanExpire == true) {
+                                            if (Constant.adminCommission?.isEnabled == false && Constant.isSubscriptionModelApplied == false) {
+                                              Get.offAll(const DashBoardScreen());
+                                            } else {
+                                              Get.offAll(const SubscriptionListScreen(), arguments: {"isShow": true});
+                                            }
+                                          } else {
+                                            Get.offAll(const DashBoardScreen());
+                                          }
                                         } else {
+                                          // New driver - go to registration
+                                          ShowToastDialog.closeLoader();
                                           DriverUserModel userModel = DriverUserModel();
                                           userModel.id = userCredential.user!.uid;
                                           userModel.profilePic = userCredential.user!.photoURL;
@@ -297,7 +309,11 @@ class LoginScreen extends StatelessWidget {
                                             "userModel": userModel,
                                           });
                                         }
-                                      });
+                                      } catch (e) {
+                                        ShowToastDialog.closeLoader();
+                                        log('❌ Apple login error: $e');
+                                        ShowToastDialog.showToast("Login failed".tr);
+                                      }
                                     }
                                   }
                                 });

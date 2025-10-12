@@ -35,6 +35,10 @@ import 'package:customer/ui/review/review_screen.dart';
 import 'package:customer/utils/DarkThemeProvider.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/utils/fire_store_utils.dart';
+import 'package:customer/utils/user_api.dart';
+import 'package:customer/utils/driver_api.dart';
+import 'package:customer/utils/sos_api.dart';
+import 'dart:developer';
 // Google Fonts replaced with local fonts
 import 'package:customer/utils/utils.dart';
 // Google Fonts replaced with local fonts
@@ -318,19 +322,35 @@ class InterCityOrderScreen extends StatelessWidget {
                                                                 Expanded(
                                                                   child: InkWell(
                                                                     onTap: () async {
-                                                                      UserModel? customer = await FireStoreUtils.getUserProfile(orderModel.userId.toString());
-                                                                      DriverUserModel? driver = await FireStoreUtils.getDriver(orderModel.driverId.toString());
+                                                                      UserModel? customer;
+                                                                      DriverUserModel? driver;
+                                                                      
+                                                                      try {
+                                                                        final customerResponse = await UserApi.getProfile(orderModel.userId.toString());
+                                                                        if (customerResponse['success'] == true && customerResponse['user'] != null) {
+                                                                          customer = UserModel.fromJson(customerResponse['user']);
+                                                                        }
+                                                                        
+                                                                        final driverResponse = await DriverApi.getProfile(orderModel.driverId.toString());
+                                                                        if (driverResponse['success'] == true && driverResponse['driver'] != null) {
+                                                                          driver = DriverUserModel.fromJson(driverResponse['driver']);
+                                                                        }
+                                                                      } catch (e) {
+                                                                        log('❌ Error loading user/driver: $e');
+                                                                      }
 
-                                                                      Get.to(ChatScreens(
+                                                                      if (customer != null && driver != null) {
+                                                                        Get.to(ChatScreens(
                                                                         driverId: driver!.id,
                                                                         customerId: customer!.id,
                                                                         customerName: customer.fullName,
                                                                         customerProfileImage: customer.profilePic,
                                                                         driverName: driver.fullName,
                                                                         driverProfileImage: driver.profilePic,
-                                                                        orderId: orderModel.id,
-                                                                        token: driver.fcmToken,
-                                                                      ));
+                                                                          orderId: orderModel.id,
+                                                                          token: driver.fcmToken,
+                                                                        ));
+                                                                      }
                                                                     },
                                                                     child: Container(
                                                                       height: 44,
@@ -347,8 +367,15 @@ class InterCityOrderScreen extends StatelessWidget {
                                                                 Expanded(
                                                                   child: InkWell(
                                                                     onTap: () async {
-                                                                      DriverUserModel? driver = await FireStoreUtils.getDriver(orderModel.driverId.toString());
-                                                                      Constant.makePhoneCall("${driver!.countryCode}${driver.phoneNumber}");
+                                                                      try {
+                                                                        final driverResponse = await DriverApi.getProfile(orderModel.driverId.toString());
+                                                                        if (driverResponse['success'] == true && driverResponse['driver'] != null) {
+                                                                          DriverUserModel driver = DriverUserModel.fromJson(driverResponse['driver']);
+                                                                          Constant.makePhoneCall("${driver.countryCode}${driver.phoneNumber}");
+                                                                        }
+                                                                      } catch (e) {
+                                                                        log('❌ Error loading driver: $e');
+                                                                      }
                                                                     },
                                                                     child: Container(
                                                                       height: 44,
@@ -371,18 +398,36 @@ class InterCityOrderScreen extends StatelessWidget {
                                                               title: "SOS".tr,
                                                               btnHeight: 44,
                                                               onPress: () async {
-                                                                await FireStoreUtils.getSOS(orderModel.id.toString()).then((value) {
-                                                                  if (value != null) {
-                                                                    ShowToastDialog.showToast("Your request is ${value.status}");
-                                                                  } else {
-                                                                    SosModel sosModel = SosModel();
-                                                                    sosModel.id = Constant.getUuid();
-                                                                    sosModel.orderId = orderModel.id;
-                                                                    sosModel.status = "Initiated";
-                                                                    sosModel.orderType = "intercity";
-                                                                    FireStoreUtils.setSOS(sosModel);
+                                                                try {
+                                                                  // Check if SOS already exists for this order
+                                                                  final response = await SosApi.getByOrder(
+                                                                    orderId: orderModel.id.toString(),
+                                                                    orderType: 'intercity',
+                                                                  );
+                                                                  
+                                                                  if (response['success'] == true && response['sos'] != null) {
+                                                                    ShowToastDialog.showToast("Your request is ${response['sos']['status']}");
                                                                   }
-                                                                });
+                                                                } catch (e) {
+                                                                  // SOS doesn't exist, create new one
+                                                                  try {
+                                                                    final uid = FireStoreUtils.getCurrentUid();
+                                                                    final userResponse = await UserApi.getProfile(uid);
+                                                                    
+                                                                    if (userResponse['success'] == true && userResponse['user'] != null) {
+                                                                      await SosApi.create(
+                                                                        userId: userResponse['user']['id'],
+                                                                        orderType: 'intercity',
+                                                                        intercityOrderId: orderModel.id,
+                                                                        status: 'initiated',
+                                                                      );
+                                                                      ShowToastDialog.showToast("SOS initiated successfully");
+                                                                    }
+                                                                  } catch (createError) {
+                                                                    log('❌ Error creating SOS: $createError');
+                                                                    ShowToastDialog.showToast("Failed to initiate SOS");
+                                                                  }
+                                                                }
                                                               },
                                                             )),
                                                         Visibility(

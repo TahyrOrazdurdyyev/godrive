@@ -5,7 +5,7 @@ class LanguageTitle {
   LanguageTitle({ this.title, this.type});
 
   LanguageTitle.fromJson(Map<String, dynamic> json) {
-    title = json['title'] ??'';
+    title = json['title'] ?? json['name'] ?? ''; // Support both 'title' and 'name' keys
     type = json['type'];
   }
 

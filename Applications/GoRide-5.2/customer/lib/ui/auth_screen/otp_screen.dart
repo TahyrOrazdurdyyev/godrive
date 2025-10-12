@@ -5,6 +5,7 @@ import 'package:customer/constant/show_toast_dialog.dart';
 import 'package:customer/controller/otp_controller.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/model/user_model.dart';
+import 'package:customer/utils/user_api.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/themes/app_colors.dart';
 // Google Fonts replaced with local fonts
@@ -109,30 +110,52 @@ class OtpScreen extends StatelessWidget {
                                   });
                                 } else {
                                   print("----->old user");
-                                  FireStoreUtils.userExitOrNot(value.user!.uid).then((userExit) async {
-                                    ShowToastDialog.closeLoader();
-                                    if (userExit == true) {
-                                      UserModel? userModel = await FireStoreUtils.getUserProfile(value.user!.uid);
-                                      if (userModel != null) {
-                                        if (userModel.isActive == true) {
-                                          Get.offAll(const DashBoardScreen());
-                                        } else {
-                                          await FirebaseAuth.instance.signOut();
-                                          ShowToastDialog.showToast("This user is disable please contact administrator".tr);
-                                        }
-                                      }
+                                  // Get or register user via API
+                                  try {
+                                    final response = await UserApi.getProfile(value.user!.uid);
+                                    UserModel? userModel;
+                                    
+                                    if (response['success'] == true && response['user'] != null) {
+                                      userModel = UserModel.fromJson(response['user']);
                                     } else {
-                                      UserModel userModel = UserModel();
-                                      userModel.id = value.user!.uid;
-                                      userModel.countryCode = controller.countryCode.value;
-                                      userModel.phoneNumber = controller.phoneNumber.value;
-                                      userModel.loginType = Constant.phoneLoginType;
+                                      // Register new user
+                                      final registerResponse = await UserApi.register(
+                                        uid: value.user!.uid,
+                                        email: value.user!.email ?? '',
+                                        fullName: value.user!.displayName ?? 'User',
+                                        phoneNumber: controller.phoneNumber.value,
+                                        countryCode: controller.countryCode.value,
+                                        loginType: 'phone',
+                                      );
+                                      
+                                      if (registerResponse['success'] == true && registerResponse['user'] != null) {
+                                        userModel = UserModel.fromJson(registerResponse['user']);
+                                      }
+                                    }
+                                    
+                                    ShowToastDialog.closeLoader();
+                                    
+                                    if (userModel != null && userModel.isActive == true) {
+                                      Get.offAll(const DashBoardScreen());
+                                    } else if (userModel != null && userModel.isActive == false) {
+                                      await FirebaseAuth.instance.signOut();
+                                      ShowToastDialog.showToast("This user is disabled. Please contact administrator".tr);
+                                    } else {
+                                      // User not found in Laravel, redirect to information screen
+                                      UserModel newUserModel = UserModel();
+                                      newUserModel.id = value.user!.uid;
+                                      newUserModel.countryCode = controller.countryCode.value;
+                                      newUserModel.phoneNumber = controller.phoneNumber.value;
+                                    newUserModel.loginType = Constant.phoneLoginType;
 
                                       Get.to(const InformationScreen(), arguments: {
-                                        "userModel": userModel,
+                                        "userModel": newUserModel,
                                       });
                                     }
-                                  });
+                                  } catch (e) {
+                                    ShowToastDialog.closeLoader();
+                                    ShowToastDialog.showToast("Login failed: ${e.toString()}".tr);
+                                  }
                                 }
                               }).catchError((error) {
                                 ShowToastDialog.closeLoader();

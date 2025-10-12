@@ -12,6 +12,7 @@ import 'package:driver/themes/responsive.dart';
 import 'package:driver/themes/text_field_them.dart';
 import 'package:driver/utils/DarkThemeProvider.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/driver_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
@@ -183,15 +184,19 @@ class ProfileScreen extends StatelessWidget {
                                                     "profileImage/${FireStoreUtils.getCurrentUid()}", File(controller.profileImage.value).path.split('/').last);
                                               }
 
-                                              DriverUserModel driverUserModel = controller.driverModel.value;
-                                              driverUserModel.fullName = controller.fullNameController.value.text;
-                                              driverUserModel.profilePic = controller.profileImage.value;
-
-                                              await FireStoreUtils.updateDriverUser(driverUserModel).then((value) {
+                                              try {
+                                                await DriverApi.updateProfile(
+                                                  uid: FireStoreUtils.getCurrentUid(),
+                                                  fullName: controller.fullNameController.value.text,
+                                                  profilePic: controller.profileImage.value,
+                                                );
                                                 ShowToastDialog.closeLoader();
                                                 controller.getData();
                                                 ShowToastDialog.showToast("Profile update successfully".tr);
-                                              });
+                                              } catch (e) {
+                                                ShowToastDialog.closeLoader();
+                                                ShowToastDialog.showToast("Failed to update profile".tr);
+                                              }
                                             }
                                           },
                                         ),

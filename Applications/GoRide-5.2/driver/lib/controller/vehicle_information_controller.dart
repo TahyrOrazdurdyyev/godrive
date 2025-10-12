@@ -8,6 +8,11 @@ import 'package:driver/model/vehicle_type_model.dart';
 import 'package:driver/model/zone_model.dart';
 import 'package:driver/themes/app_colors.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/driver_api.dart';
+import 'package:driver/utils/service_api.dart';
+import 'package:driver/utils/zone_api.dart';
+import 'package:driver/utils/driver_rule_api.dart';
+import 'package:driver/utils/vehicle_type_api.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -54,19 +59,38 @@ class VehicleInformationController extends GetxController {
   RxString zoneString = "".obs;
 
   getVehicleTye() async {
-    await FireStoreUtils.getService().then((value) {
-      serviceList.value = value;
-    });
-
-    await FireStoreUtils.getZone().then((value) {
-      if (value != null) {
-        zoneList.value = value;
+    try {
+      // Get services from Laravel API
+      final servicesResponse = await ServiceApi.getAllServices();
+      if (servicesResponse['success'] == true && servicesResponse['data'] != null) {
+        serviceList.value = (servicesResponse['data'] as List)
+            .map((s) => ServiceModel.fromJson(s))
+            .toList();
+        print('✅ Loaded ${serviceList.length} services');
       }
-    });
+    } catch (e) {
+      print('❌ Error loading services: $e');
+    }
 
-    await FireStoreUtils.getDriverProfile(FireStoreUtils.getCurrentUid()).then((value) {
-      if (value != null) {
-        driverModel.value = value;
+    try {
+      // Get zones from Laravel API
+      final zonesResponse = await ZoneApi.getAllZones();
+      if (zonesResponse['success'] == true && zonesResponse['data'] != null) {
+        zoneList.value = (zonesResponse['data'] as List)
+            .map((z) => ZoneModel.fromJson(z))
+            .toList();
+        print('✅ Loaded ${zoneList.length} zones');
+      }
+    } catch (e) {
+      print('❌ Error loading zones: $e');
+    }
+
+    try {
+      // Get driver profile from API
+      final uid = FireStoreUtils.getCurrentUid();
+      final response = await DriverApi.getProfile(uid);
+      if (response['success'] == true && response['driver'] != null) {
+        driverModel.value = DriverUserModel.fromJson(response['driver']);
         if (driverModel.value.vehicleInformation != null) {
           vehicleNumberController.value.text = driverModel.value.vehicleInformation!.vehicleNumber.toString();
           selectedDate.value = driverModel.value.vehicleInformation!.registrationDate!.toDate();
@@ -98,22 +122,38 @@ class VehicleInformationController extends GetxController {
           }
         }
       }
-    });
+    } catch (e) {
+      print('❌ Error loading driver profile: $e');
+    }
 
-    await FireStoreUtils.getVehicleType().then((value) {
-      vehicleList = value!;
-      if (driverModel.value.vehicleInformation != null) {
-        for (var element in vehicleList) {
-          if (element.id == driverModel.value.vehicleInformation!.vehicleTypeId) {
-            selectedVehicle.value = element;
+    try {
+      // Get vehicle types from Laravel API
+      final vehicleTypesResponse = await VehicleTypeApi.getAllVehicleTypes();
+      if (vehicleTypesResponse['success'] == true && vehicleTypesResponse['data'] != null) {
+        vehicleList = (vehicleTypesResponse['data'] as List)
+            .map((v) => VehicleTypeModel.fromJson(v))
+            .toList();
+        print('✅ Loaded ${vehicleList.length} vehicle types');
+        if (driverModel.value.vehicleInformation != null) {
+          for (var element in vehicleList) {
+            if (element.id == driverModel.value.vehicleInformation!.vehicleTypeId) {
+              selectedVehicle.value = element;
+            }
           }
         }
       }
-    });
+    } catch (e) {
+      print('❌ Error loading vehicle types: $e');
+    }
 
-    await FireStoreUtils.getDriverRules().then((value) {
-      if (value != null) {
-        driverRulesList.value = value;
+    try {
+      // Get driver rules from Laravel API
+      final driverRulesResponse = await DriverRuleApi.getAllDriverRules();
+      if (driverRulesResponse['success'] == true && driverRulesResponse['data'] != null) {
+        driverRulesList.value = (driverRulesResponse['data'] as List)
+            .map((r) => DriverRulesModel.fromJson(r))
+            .toList();
+        print('✅ Loaded ${driverRulesList.length} driver rules');
         if (driverModel.value.vehicleInformation != null) {
           if (driverModel.value.vehicleInformation!.driverRules != null) {
             for (var element in driverModel.value.vehicleInformation!.driverRules!) {
@@ -122,7 +162,9 @@ class VehicleInformationController extends GetxController {
           }
         }
       }
-    });
+    } catch (e) {
+      print('❌ Error loading driver rules: $e');
+    }
     isLoading.value = false;
     update();
   }
@@ -145,13 +187,30 @@ class VehicleInformationController extends GetxController {
         perKmRate: acNonAcWithoutPerKmRate.value.text,
         driverRules: selectedDriverRulesList);
 
-    await FireStoreUtils.updateDriverUser(driverModel.value).then((value) {
-      ShowToastDialog.closeLoader();
-      if (value == true) {
-        ShowToastDialog.showToast(
-          "Information update successfully".tr,
-        );
+    // Update via API
+    try {
+      final uid = FireStoreUtils.getCurrentUid();
+      final response = await DriverApi.updateProfile(
+        uid: uid,
+        fullName: driverModel.value.fullName!,
+        email: driverModel.value.email!,
+        vehicleNumber: vehicleNumberController.value.text,
+        vehicleType: selectedVehicle.value.name != null && selectedVehicle.value.name!.isNotEmpty 
+            ? Constant.localizationName(selectedVehicle.value.name) 
+            : "Unknown",
+      );
+      
+      if (response['success'] == true) {
+        ShowToastDialog.closeLoader();
+        ShowToastDialog.showToast("Information update successfully".tr);
+      } else {
+        ShowToastDialog.closeLoader();
+        ShowToastDialog.showToast(response['message'] ?? "Failed to update information".tr);
       }
-    });
+    } catch (e) {
+      ShowToastDialog.closeLoader();
+      ShowToastDialog.showToast("Failed to update information".tr);
+      print('❌ Error updating via API: $e');
+    }
   }
 }

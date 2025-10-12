@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:driver/constant/collection_name.dart';
@@ -10,6 +11,8 @@ import 'package:driver/themes/responsive.dart';
 import 'package:driver/ui/chat_screen/chat_screen.dart';
 import 'package:driver/utils/DarkThemeProvider.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/customer_api.dart';
+import 'package:driver/utils/driver_api.dart';
 import 'package:driver/widget/firebase_pagination/src/firestore_pagination.dart';
 import 'package:driver/widget/firebase_pagination/src/models/view_type.dart';
 import 'package:flutter/material.dart';
@@ -45,19 +48,28 @@ class InboxScreen extends StatelessWidget {
                     InboxModel inboxModel = InboxModel.fromJson(data!);
                     return InkWell(
                       onTap: () async {
-                        UserModel? customer = await FireStoreUtils.getCustomer(inboxModel.customerId.toString());
-                        DriverUserModel? driver = await FireStoreUtils.getDriverProfile(inboxModel.driverId.toString());
+                        try {
+                          final customerResponse = await CustomerApi.getCustomerProfile(inboxModel.customerId.toString());
+                          final driverResponse = await DriverApi.getProfile(inboxModel.driverId.toString());
+                          
+                          if (customerResponse['success'] == true && driverResponse['success'] == true) {
+                            final customer = UserModel.fromJson(customerResponse['customer']);
+                            final driver = DriverUserModel.fromJson(driverResponse['driver']);
 
-                        Get.to(ChatScreens(
-                          driverId: driver!.id,
-                          customerId: customer!.id,
-                          customerName: customer.fullName,
-                          customerProfileImage: customer.profilePic,
-                          driverName: driver.fullName,
-                          driverProfileImage: driver.profilePic,
-                          orderId: inboxModel.orderId,
-                          token: customer.fcmToken,
-                        ));
+                            Get.to(ChatScreens(
+                              driverId: driver.id,
+                              customerId: customer.id,
+                              customerName: customer.fullName,
+                              customerProfileImage: customer.profilePic,
+                              driverName: driver.fullName,
+                              driverProfileImage: driver.profilePic,
+                              orderId: inboxModel.orderId,
+                              token: customer.fcmToken,
+                            ));
+                          }
+                        } catch (e) {
+                          log('❌ Chat open error: $e');
+                        }
                       },
                       child: Padding(
                         padding: const EdgeInsets.all(4.0),

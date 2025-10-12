@@ -1,7 +1,10 @@
+import 'dart:developer';
 import 'package:customer/model/driver_user_model.dart';
 import 'package:customer/model/intercity_order_model.dart';
 import 'package:customer/model/order_model.dart';
 import 'package:customer/utils/fire_store_utils.dart';
+import 'package:customer/utils/driver_api.dart';
+import 'package:customer/utils/review_api.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -36,18 +39,47 @@ class RatingController extends GetxController {
         intercityOrderModel.value = argumentData['interCityOrderModel'];
       }
     }
-    await FireStoreUtils.getDriver(type.value == "orderModel" ? orderModel.value.driverId.toString() : intercityOrderModel.value.driverId.toString()).then((value) {
-      if (value != null) {
-        driverModel.value = value;
+    
+    try {
+      // Get driver data via API
+      final driverId = type.value == "orderModel" 
+          ? orderModel.value.driverId 
+          : intercityOrderModel.value.driverId;
+      
+      if (driverId != null) {
+        final driverResponse = await DriverApi.getProfile(driverId);
+        if (driverResponse['success'] == true && driverResponse['driver'] != null) {
+          driverModel.value = DriverUserModel.fromJson(driverResponse['driver']);
+        }
       }
-    });
-    await FireStoreUtils.getReview(type.value == "orderModel" ? orderModel.value.id.toString() : intercityOrderModel.value.id.toString()).then((value) {
-      if (value != null) {
-        reviewModel.value = value;
-        rating.value = double.parse(reviewModel.value.rating.toString());
-        commentController.value.text = reviewModel.value.comment.toString();
+      
+      // Get existing review via API
+      final orderId = type.value == "orderModel" 
+          ? orderModel.value.id 
+          : intercityOrderModel.value.id;
+      
+      if (orderId != null) {
+        try {
+          final reviewResponse = await ReviewApi.getReviewByOrder(orderId);
+          if (reviewResponse['success'] == true && reviewResponse['review'] != null) {
+            // Parse review data
+            final reviewData = reviewResponse['review'];
+            reviewModel.value.id = reviewData['id']?.toString();
+            reviewModel.value.rating = reviewData['rating']?.toString();
+            reviewModel.value.comment = reviewData['comment'];
+            
+            rating.value = double.parse(reviewModel.value.rating ?? '1.0');
+            commentController.value.text = reviewModel.value.comment ?? '';
+          }
+        } catch (e) {
+          // No existing review, that's ok
+          log('No existing review found: $e');
+        }
       }
-    });
+    } catch (e) {
+      log('❌ Error loading driver/review data: $e');
+    }
+    
     isLoading.value = false;
     update();
   }

@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:driver/constant/collection_name.dart';
 import 'package:driver/constant/constant.dart';
@@ -8,6 +9,10 @@ import 'package:driver/model/driver_user_model.dart';
 import 'package:driver/model/intercity_order_model.dart';
 import 'package:driver/model/order/driverId_accept_reject.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/driver_api.dart';
+import 'package:driver/utils/customer_api.dart';
+import 'package:driver/utils/order_bid_api.dart';
+import 'package:driver/utils/intercity_order_api.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -38,41 +43,51 @@ class IntercityController extends GetxController {
   acceptOrder(InterCityOrderModel orderModel) async {
     if (double.parse(driverModel.value.walletAmount.toString()) >= double.parse(Constant.minimumAmountToWithdrawal)) {
       ShowToastDialog.showLoader("Please wait".tr);
-      List<dynamic> newAcceptedDriverId = [];
-      if (orderModel.acceptedDriverId != null) {
-        newAcceptedDriverId = orderModel.acceptedDriverId!;
-      } else {
-        newAcceptedDriverId = [];
-      }
-      newAcceptedDriverId.add(FireStoreUtils.getCurrentUid());
-      orderModel.acceptedDriverId = newAcceptedDriverId;
-      await FireStoreUtils.setInterCityOrder(orderModel);
-
-      DriverIdAcceptReject driverIdAcceptReject = DriverIdAcceptReject(
+      
+      try {
+        // Create bid via API
+        await OrderBidApi.createOrUpdateBid(
+          orderId: orderModel.id!,
           driverId: FireStoreUtils.getCurrentUid(),
-          acceptedRejectTime: Timestamp.now(),
-          offerAmount: newAmount.value,
-          suggestedDate: orderModel.whenDates,
-          suggestedTime: DateFormat("HH:mm").format(suggestedTime!));
-      await FireStoreUtils.getCustomer(orderModel.userId.toString()).then((value) async {
-        if (value != null) {
-          await SendNotification.sendOneNotification(token: value.fcmToken.toString(), title: 'New Bids'.tr, body: 'Driver requested your ride.'.tr, payload: {});
+          status: 'pending',
+          offerAmount: double.parse(newAmount.value),
+          driverNote: 'Suggested date: ${orderModel.whenDates}, time: ${DateFormat("HH:mm").format(suggestedTime!)}',
+          orderType: 'intercity',
+        );
+
+        // Send notification to customer
+        final customerResponse = await CustomerApi.getCustomerProfile(orderModel.userId.toString());
+        if (customerResponse['success'] == true && customerResponse['customer'] != null) {
+          final customer = customerResponse['customer'];
+          if (customer['fcm_token'] != null) {
+            await SendNotification.sendOneNotification(
+              token: customer['fcm_token'].toString(),
+              title: 'New Bids'.tr,
+              body: 'Driver requested your ride.'.tr,
+              payload: {}
+            );
+          }
         }
-      });
 
+        // Update driver subscription if needed
+        if (driverModel.value.subscriptionTotalOrders != "-1") {
+          driverModel.value.subscriptionTotalOrders = (int.parse(driverModel.value.subscriptionTotalOrders.toString()) - 1).toString();
+          await DriverApi.updateProfile(
+            uid: FireStoreUtils.getCurrentUid(),
+            subscriptionTotalOrders: driverModel.value.subscriptionTotalOrders,
+          );
+        }
 
-      await FireStoreUtils.acceptInterCityRide(orderModel, driverIdAcceptReject).then((value) async {
         ShowToastDialog.closeLoader();
         ShowToastDialog.showToast("Ride Accepted".tr);
         Get.back();
-        if (value != null && value == true) {
-          if(driverModel.value.subscriptionTotalOrders != "-1"){
-            driverModel.value.subscriptionTotalOrders = (int.parse(driverModel.value.subscriptionTotalOrders.toString()) - 1).toString();
-            await FireStoreUtils.updateDriverUser(driverModel.value);
-          }
-        }
         homeController.selectedIndex.value = 1;
-      });
+        
+      } catch (e) {
+        ShowToastDialog.closeLoader();
+        log('❌ Accept order error: $e');
+        ShowToastDialog.showToast("Failed to accept order".tr);
+      }
     } else {
       ShowToastDialog.showToast("You have to minimum ${Constant.amountShow(amount: Constant.minimumDepositToRideAccept)} wallet amount to Accept Order and place a bid".tr);
     }
@@ -81,106 +96,36 @@ class IntercityController extends GetxController {
   getOrder() async {
     isLoading.value = true;
     intercityServiceOrder.clear();
-    FireStoreUtils.fireStore.collection(CollectionName.driverUsers).doc(FireStoreUtils.getCurrentUid()).snapshots().listen((event) {
-      if (event.exists) {
-        driverModel.value = DriverUserModel.fromJson(event.data()!);
-      }
-    });
-    if (destinationCityController.value.text.isNotEmpty) {
-      if (whenController.value.text.isEmpty) {
-        await FireStoreUtils.fireStore
-            .collection(CollectionName.ordersIntercity)
-            .where('sourceCity', isEqualTo: sourceCityController.value.text)
-            .where('destinationCity', isEqualTo: destinationCityController.value.text)
-            .where('intercityServiceId', isNotEqualTo: "Kn2VEnPI3ikF58uK8YqY")
-            .where('zoneId', whereIn: driverModel.value.zoneIds)
-            .where('status', isEqualTo: Constant.ridePlaced)
-            .get()
-            .then((value) {
-          isLoading.value = false;
-
-          for (var element in value.docs) {
-            InterCityOrderModel documentModel = InterCityOrderModel.fromJson(element.data());
-            if (documentModel.acceptedDriverId != null && documentModel.acceptedDriverId!.isNotEmpty) {
-              if (!documentModel.acceptedDriverId!.contains(FireStoreUtils.getCurrentUid())) {
-                intercityServiceOrder.add(documentModel);
-              }
-            } else {
-              intercityServiceOrder.add(documentModel);
-            }
+    
+    try {
+      // Get driver profile to get driver ID
+      final driverResponse = await DriverApi.getProfile(FireStoreUtils.getCurrentUid());
+      if (driverResponse['success'] == true && driverResponse['driver'] != null) {
+        driverModel.value = DriverUserModel.fromJson(driverResponse['driver']);
+        
+        // Search for intercity orders
+        final searchResponse = await InterCityOrderApi.searchForDriver(
+          driverId: int.parse(driverModel.value.id!),
+          sourceCity: sourceCityController.value.text,
+          destinationCity: destinationCityController.value.text.isNotEmpty 
+              ? destinationCityController.value.text 
+              : null,
+          whenDate: whenController.value.text.isNotEmpty 
+              ? DateFormat("dd-MMM-yyyy").format(dateAndTime!) 
+              : null,
+        );
+        
+        if (searchResponse['success'] == true && searchResponse['orders'] != null) {
+          for (var orderData in searchResponse['orders']) {
+            InterCityOrderModel order = InterCityOrderModel.fromJson(orderData);
+            intercityServiceOrder.add(order);
           }
-        });
+        }
       }
-      else {
-        await FireStoreUtils.fireStore
-            .collection(CollectionName.ordersIntercity)
-            .where('sourceCity', isEqualTo: sourceCityController.value.text)
-            .where('destinationCity', isEqualTo: destinationCityController.value.text)
-            .where('intercityServiceId', isNotEqualTo: "Kn2VEnPI3ikF58uK8YqY")
-            .where('whenDates', isEqualTo: DateFormat("dd-MMM-yyyy").format(dateAndTime!))
-            .where('zoneId', whereIn: driverModel.value.zoneIds)
-            .where('status', isEqualTo: Constant.ridePlaced)
-            .get()
-            .then((value) {
-          isLoading.value = false;
-
-          for (var element in value.docs) {
-            InterCityOrderModel documentModel = InterCityOrderModel.fromJson(element.data());
-            if (documentModel.acceptedDriverId != null && documentModel.acceptedDriverId!.isNotEmpty) {
-              if (!documentModel.acceptedDriverId!.contains(FireStoreUtils.getCurrentUid())) {
-                intercityServiceOrder.add(documentModel);
-              }
-            } else {
-              intercityServiceOrder.add(documentModel);
-            }
-          }
-        });
-      }
-    } else {
-      if (whenController.value.text.isEmpty) {
-        await FireStoreUtils.fireStore
-            .collection(CollectionName.ordersIntercity)
-            .where('sourceCity', isEqualTo: sourceCityController.value.text)
-            .where('intercityServiceId', isNotEqualTo: "Kn2VEnPI3ikF58uK8YqY")
-            .where('zoneId', whereIn: driverModel.value.zoneIds)
-            .where('status', isEqualTo: Constant.ridePlaced)
-            .get()
-            .then((value) {
-          isLoading.value = false;
-          for (var element in value.docs) {
-            InterCityOrderModel documentModel = InterCityOrderModel.fromJson(element.data());
-            if (documentModel.acceptedDriverId != null && documentModel.acceptedDriverId!.isNotEmpty) {
-              if (!documentModel.acceptedDriverId!.contains(FireStoreUtils.getCurrentUid())) {
-                intercityServiceOrder.add(documentModel);
-              }
-            } else {
-              intercityServiceOrder.add(documentModel);
-            }
-          }
-        });
-      }
-      else {
-        await FireStoreUtils.fireStore
-            .collection(CollectionName.ordersIntercity)
-            .where('sourceCity', isEqualTo: sourceCityController.value.text)
-            .where('intercityServiceId', isNotEqualTo: "Kn2VEnPI3ikF58uK8YqY")
-            .where('whenDates', isEqualTo: DateFormat("dd-MMM-yyyy").format(dateAndTime!))
-            .where('status', isEqualTo: Constant.ridePlaced)
-            .get()
-            .then((value) {
-          isLoading.value = false;
-          for (var element in value.docs) {
-            InterCityOrderModel documentModel = InterCityOrderModel.fromJson(element.data());
-            if (documentModel.acceptedDriverId != null && documentModel.acceptedDriverId!.isNotEmpty) {
-              if (!documentModel.acceptedDriverId!.contains(FireStoreUtils.getCurrentUid())) {
-                intercityServiceOrder.add(documentModel);
-              }
-            } else {
-              intercityServiceOrder.add(documentModel);
-            }
-          }
-        });
-      }
+    } catch (e) {
+      log('❌ Get intercity orders error: $e');
     }
+    
+    isLoading.value = false;
   }
 }

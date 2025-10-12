@@ -29,6 +29,10 @@ import 'package:customer/ui/coupon_screen/coupon_screen.dart';
 import 'package:customer/utils/DarkThemeProvider.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/utils/fire_store_utils.dart';
+import 'package:customer/utils/driver_api.dart';
+import 'package:customer/utils/wallet_api.dart';
+import 'package:customer/utils/user_api.dart';
+import 'dart:developer';
 // Google Fonts replaced with local fonts
 import 'package:customer/widget/driver_view.dart';
 // Google Fonts replaced with local fonts
@@ -46,6 +50,19 @@ import 'package:provider/provider.dart';
 
 import '../../themes/button_them.dart';
 // Google Fonts replaced with local fonts
+
+/// Helper function to get driver from API
+Future<DriverUserModel?> _getDriver(String driverId) async {
+  try {
+    final response = await DriverApi.getProfile(driverId);
+    if (response['success'] == true && response['driver'] != null) {
+      return DriverUserModel.fromJson(response['driver']);
+    }
+  } catch (e) {
+    log('❌ Error loading driver: $e');
+  }
+  return null;
+}
 
 class InterCityPaymentOrderScreen extends StatelessWidget {
   const InterCityPaymentOrderScreen({Key? key}) : super(key: key);
@@ -116,7 +133,7 @@ class InterCityPaymentOrderScreen extends StatelessWidget {
                                               height: 10,
                                             ),
                                             FutureBuilder<DriverUserModel?>(
-                                                future: FireStoreUtils.getDriver(controller.orderModel.value.driverId.toString()),
+                                                future: _getDriver(controller.orderModel.value.driverId.toString()),
                                                 builder: (context, snapshot) {
                                                   switch (snapshot.connectionState) {
                                                     case ConnectionState.waiting:
@@ -1352,14 +1369,28 @@ class InterCityPaymentOrderScreen extends StatelessWidget {
                                   userType: "customer",
                                   userId: FireStoreUtils.getCurrentUid());
 
-                              await FireStoreUtils.setWalletTransaction(transactionModel).then((value) async {
-                                if (value == true) {
-                                  await FireStoreUtils.updateUserWallet(amount: "-${controller.calculateAmount().toString()}").then((value) {
-                                    Get.back();
-                                    controller.completeOrder();
-                                  });
+                              try {
+                                final uid = FireStoreUtils.getCurrentUid();
+                                final userResponse = await UserApi.getProfile(uid);
+                                
+                                if (userResponse['success'] == true && userResponse['user'] != null) {
+                                  final userId = userResponse['user']['id'];
+                                  
+                                  // Withdraw money from wallet via API
+                                  await WalletApi.withdrawMoney(
+                                    userType: 'customer',
+                                    userId: userId,
+                                    amount: double.parse(controller.calculateAmount().toString()),
+                                    note: "Ride amount debit".tr,
+                                  );
+                                  
+                                  Get.back();
+                                  controller.completeOrder();
                                 }
-                              });
+                              } catch (e) {
+                                log('❌ Wallet transaction error: $e');
+                                ShowToastDialog.showToast("Payment failed");
+                              }
                             } else {
                               ShowToastDialog.showToast("Wallet Amount Insufficient".tr);
                             }

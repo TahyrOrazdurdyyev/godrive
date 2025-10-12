@@ -25,6 +25,27 @@ class HomeScreen extends StatelessWidget {
                 ? Constant.loader(context)
                 : Column(
                     children: [
+                      // 🔥 PENDING APPROVAL BANNER
+                      !controller.isDriverActive.value
+                          ? Container(
+                              width: Responsive.width(100, context),
+                              color: Colors.orange,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.info_outline, color: Colors.white, size: 20),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      "Your account is pending admin approval. You cannot receive orders yet.".tr,
+                                      style: GoogleFonts.poppins(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : SizedBox.shrink(),
+                      // WALLET AMOUNT BANNER
                       double.parse(controller.driverModel.value.walletAmount.toString()) >= double.parse(Constant.minimumDepositToRideAccept)
                           ? SizedBox(
                               height: Responsive.width(8, context),

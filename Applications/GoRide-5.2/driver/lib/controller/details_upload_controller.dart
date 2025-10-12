@@ -6,7 +6,10 @@ import 'package:driver/constant/show_toast_dialog.dart';
 import 'package:driver/model/document_model.dart';
 import 'package:driver/model/driver_document_model.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/driver_api.dart';
+import 'package:driver/utils/driver_document_api.dart';
 import 'package:flutter/cupertino.dart';
+import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
@@ -43,23 +46,35 @@ class DetailsUploadController extends GetxController {
   Rx<Documents> documents = Documents().obs;
 
   getDocument() async {
-    await FireStoreUtils.getDocumentOfDriver().then((value) {
-      isLoading.value = false;
-      if (value != null) {
-        var contain = value.documents!.where((element) => element.documentId == documentModel.value.id);
-        if (contain.isNotEmpty) {
-          documents.value = value.documents!.firstWhere((itemToCheck) => itemToCheck.documentId == documentModel.value.id);
-
-          documentNumberController.value.text = documents.value.documentNumber!;
-          frontImage.value = documents.value.frontImage!;
-          backImage.value = documents.value.backImage!;
-          if (documents.value.expireAt != null) {
-            selectedDate.value = documents.value.expireAt!.toDate();
-            expireAtController.value.text = DateFormat("dd-MM-yyyy").format(selectedDate.value!);
+    try {
+      // Get driver ID from API
+      final uid = FireStoreUtils.getCurrentUid();
+      final driverResponse = await DriverApi.getProfile(uid);
+      
+      if (driverResponse['success'] == true && driverResponse['driver'] != null) {
+        final driverId = driverResponse['driver']['id'];
+        
+        // Get documents from API
+        final docsResponse = await DriverDocumentApi.getDocuments(driverId);
+        
+        if (docsResponse['success'] == true && docsResponse['documents'] != null) {
+          // Find document matching current documentModel
+          final docs = docsResponse['documents'] as List;
+          final matchingDoc = docs.where((doc) => doc['document_type'] == documentModel.value.id).toList();
+          
+          if (matchingDoc.isNotEmpty) {
+            final doc = matchingDoc.first;
+            documentNumberController.value.text = doc['document_name'] ?? '';
+            frontImage.value = doc['document_url'] ?? '';
+            // For simplicity, using same image for back (can be extended later)
+            backImage.value = doc['document_url'] ?? '';
           }
         }
       }
-    });
+    } catch (e) {
+      print('❌ Error loading documents: $e');
+    }
+    isLoading.value = false;
   }
 
   final ImagePicker _imagePicker = ImagePicker();
@@ -96,18 +111,53 @@ class DetailsUploadController extends GetxController {
     documents.value.documentId = documentModel.value.id;
     documents.value.documentNumber = documentNumberController.value.text;
     documents.value.backImage = backImage.value;
-    documents.value.verified = false;
-    if (documentModel.value.expireAt == true) {
-      documents.value.expireAt = Timestamp.fromDate(selectedDate.value!);
-    }
-
-    await FireStoreUtils.uploadDriverDocument(documents.value).then((value) {
-      if (value) {
+    try {
+      // Get driver ID
+      final uid = FireStoreUtils.getCurrentUid();
+      final driverResponse = await DriverApi.getProfile(uid);
+      
+      if (driverResponse['success'] == true && driverResponse['driver'] != null) {
+        final driverId = driverResponse['driver']['id'];
+        
+        // Convert front image to base64
+        if (frontImage.value.isNotEmpty && !frontImage.value.startsWith('http')) {
+          final bytes = await File(frontImage.value).readAsBytes();
+          final base64Image = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+          
+          // Upload front image
+          await DriverDocumentApi.uploadDocument(
+            driverId: driverId,
+            documentType: documentModel.value.id!,
+            documentBase64: base64Image,
+            documentName: '${documentModel.value.title}_front_${documentNumberController.value.text}',
+          );
+        }
+        
+        // Convert and upload back image if different from front
+        if (backImage.value.isNotEmpty && backImage.value != frontImage.value && !backImage.value.startsWith('http')) {
+          final bytes = await File(backImage.value).readAsBytes();
+          final base64Image = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+          
+          await DriverDocumentApi.uploadDocument(
+            driverId: driverId,
+            documentType: '${documentModel.value.id}_back',
+            documentBase64: base64Image,
+            documentName: '${documentModel.value.title}_back_${documentNumberController.value.text}',
+          );
+        }
+        
         ShowToastDialog.closeLoader();
         ShowToastDialog.showToast("Document upload successfully");
-
         Get.back();
+      } else {
+        ShowToastDialog.closeLoader();
+        ShowToastDialog.showToast("Failed to upload document");
       }
-    });
+    } catch (e) {
+      ShowToastDialog.closeLoader();
+      ShowToastDialog.showToast("Error: ${e.toString()}");
+      print('❌ Error uploading document: $e');
+    }
   }
 }
+

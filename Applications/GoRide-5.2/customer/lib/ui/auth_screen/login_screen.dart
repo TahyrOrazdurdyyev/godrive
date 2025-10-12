@@ -6,6 +6,7 @@ import 'package:customer/constant/constant.dart';
 import 'package:customer/constant/show_toast_dialog.dart';
 import 'package:customer/controller/login_controller.dart';
 import 'package:customer/model/user_model.dart';
+import 'package:customer/utils/user_api.dart';
 import 'package:customer/themes/app_colors.dart';
 import 'package:customer/themes/button_them.dart';
 import 'package:customer/themes/responsive.dart';
@@ -137,53 +138,15 @@ class LoginScreen extends StatelessWidget {
                           iconAssetImage: 'assets/icons/ic_google.png',
                           onPress: () async {
                             ShowToastDialog.showLoader("Please wait".tr);
-                            await controller.signInWithGoogle().then((value) {
+                            await controller.signInWithGoogle().then((userModel) {
                               ShowToastDialog.closeLoader();
-                              if (value != null) {
-                                if (value.additionalUserInfo!.isNewUser) {
-                                  print("----->new user");
-                                  UserModel userModel = UserModel();
-                                  userModel.id = value.user!.uid;
-                                  userModel.email = value.user!.email;
-                                  userModel.fullName = value.user!.displayName;
-                                  userModel.profilePic = value.user!.photoURL;
-                                  userModel.loginType = Constant.googleLoginType;
-
-                                  ShowToastDialog.closeLoader();
-                                  Get.to(const InformationScreen(), arguments: {
-                                    "userModel": userModel,
-                                  });
-                                } else {
-                                  print("----->old user");
-                                  FireStoreUtils.userExitOrNot(value.user!.uid).then((userExit) async {
-                                    ShowToastDialog.closeLoader();
-                                    if (userExit == true) {
-                                      UserModel? userModel = await FireStoreUtils.getUserProfile(value.user!.uid);
-                                      if (userModel != null) {
-                                        if (userModel.isActive == true) {
-                                          String token = await NotificationService.getToken();
-                                          userModel.fcmToken = token;
-                                          await FireStoreUtils.updateUser(userModel);
-                                          Get.offAll(const DashBoardScreen());
-                                        } else {
-                                          await FirebaseAuth.instance.signOut();
-                                          ShowToastDialog.showToast("This user is disable please contact administrator".tr);
-                                        }
-                                      }
-                                    } else {
-                                      UserModel userModel = UserModel();
-                                      userModel.id = value.user!.uid;
-                                      userModel.email = value.user!.email;
-                                      userModel.fullName = value.user!.displayName;
-                                      userModel.profilePic = value.user!.photoURL;
-                                      userModel.loginType = Constant.googleLoginType;
-
-                                      Get.to(const InformationScreen(), arguments: {
-                                        "userModel": userModel,
-                                      });
-                                    }
-                                  });
-                                }
+                              if (userModel != null) {
+                                print("----->Google login successful");
+                                // User logged in successfully, navigate to dashboard
+                                Get.offAll(const DashBoardScreen());
+                              } else {
+                                print("----->Google login failed");
+                                ShowToastDialog.showToast("Google login failed. Please try again.");
                               }
                             });
                           },
@@ -201,7 +164,7 @@ class LoginScreen extends StatelessWidget {
                               iconColor: themeChange.getThem() ? AppColors.darkModePrimary : Colors.black,
                               onPress: () async {
                                 ShowToastDialog.showLoader("Please wait".tr);
-                                await controller.signInWithApple().then((value) {
+                                await controller.signInWithApple().then((value) async {
                                   ShowToastDialog.closeLoader();
 
                                   if (value != null) {
@@ -215,39 +178,60 @@ class LoginScreen extends StatelessWidget {
                                       userModel.profilePic = userCredential.user!.photoURL;
                                       userModel.loginType = Constant.appleLoginType;
                                       userModel.email = userCredential.additionalUserInfo!.profile!['email'];
-                                      userModel.fullName = "${appleCredential.givenName} ${appleCredential.familyName}";
+                                      userModel.fullName = "${appleCredential.givenName ?? ''} ${appleCredential.familyName ?? ''}";
 
                                       ShowToastDialog.closeLoader();
                                       Get.to(const InformationScreen(), arguments: {
                                         "userModel": userModel,
                                       });
                                     } else {
-                                      FireStoreUtils.userExitOrNot(userCredential.user!.uid).then((userExit) async {
-                                        ShowToastDialog.closeLoader();
-
-                                        if (userExit == true) {
-                                          UserModel? userModel = await FireStoreUtils.getUserProfile(userCredential.user!.uid);
-                                          if (userModel != null) {
-                                            if (userModel.isActive == true) {
-                                              Get.offAll(const DashBoardScreen());
-                                            } else {
-                                              await FirebaseAuth.instance.signOut();
-                                              ShowToastDialog.showToast("This user is disable please contact administrator".tr);
-                                            }
+                                      // Get or register user via API
+                                      try {
+                                        final response = await UserApi.getProfile(userCredential.user!.uid);
+                                        UserModel? userModel;
+                                        
+                                        if (response['success'] == true && response['user'] != null) {
+                                          userModel = UserModel.fromJson(response['user']);
+                                        } else {
+                                          // Register new user
+                                          final registerResponse = await UserApi.register(
+                                            uid: userCredential.user!.uid,
+                                            email: userCredential.additionalUserInfo!.profile!['email'] ?? '',
+                                            fullName: "${appleCredential.givenName ?? ''} ${appleCredential.familyName ?? ''}".trim(),
+                                            phoneNumber: '',
+                                            countryCode: '+993',
+                                            loginType: 'apple',
+                                            profilePic: userCredential.user!.photoURL,
+                                          );
+                                          
+                                          if (registerResponse['success'] == true && registerResponse['user'] != null) {
+                                            userModel = UserModel.fromJson(registerResponse['user']);
                                           }
+                                        }
+                                        
+                                        ShowToastDialog.closeLoader();
+                                        
+                                        if (userModel != null && userModel.isActive == true) {
+                                          Get.offAll(const DashBoardScreen());
+                                        } else if (userModel != null && userModel.isActive == false) {
+                                          await FirebaseAuth.instance.signOut();
+                                          ShowToastDialog.showToast("This user is disabled. Please contact administrator".tr);
                                         } else {
                                           UserModel userModel = UserModel();
-                                          userModel.id = userCredential.user!.uid;
-                                          userModel.profilePic = userCredential.user!.photoURL;
-                                          userModel.loginType = Constant.appleLoginType;
-                                          userModel.email = userCredential.additionalUserInfo!.profile!['email'];
-                                          userModel.fullName = "${appleCredential.givenName ?? ''} ${appleCredential.familyName ?? ''}";
+                                        userModel.id = userCredential.user!.uid;
+                                        userModel.profilePic = userCredential.user!.photoURL;
+                                        userModel.loginType = Constant.appleLoginType;
+                                        userModel.email = userCredential.additionalUserInfo!.profile!['email'];
+                                        userModel.fullName = "${appleCredential.givenName ?? ''} ${appleCredential.familyName ?? ''}";
 
                                           Get.to(const InformationScreen(), arguments: {
                                             "userModel": userModel,
                                           });
                                         }
-                                      });
+                                      } catch (e) {
+                                        ShowToastDialog.closeLoader();
+                                        ShowToastDialog.showToast("Login failed: ${e.toString()}".tr);
+                                      }
                                     }
                                   }
                                 });

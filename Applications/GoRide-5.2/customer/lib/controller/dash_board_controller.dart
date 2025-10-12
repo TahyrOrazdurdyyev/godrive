@@ -7,8 +7,6 @@ import 'package:customer/ui/home_screens/home_screen.dart';
 import 'package:customer/ui/interCity/interCity_screen.dart';
 import 'package:customer/ui/intercityOrders/intercity_order_screen.dart';
 import 'package:customer/ui/orders/order_screen.dart';
-import 'package:customer/ui/demo_screens/demo_order_screen.dart';
-import 'package:customer/ui/demo_screens/demo_intercity_screen.dart';
 import 'package:customer/ui/profile_screen/profile_screen.dart';
 import 'package:customer/ui/referral_screen/referral_screen.dart';
 import 'package:customer/ui/settings_screen/setting_screen.dart';
@@ -41,9 +39,9 @@ class DashBoardController extends GetxController {
       case 1:
         return const InterCityScreen();
       case 2:
-        return const DemoOrderScreen(); // DEMO: Use demo screen instead of OrderScreen
+        return const OrderScreen(); // Real order screen for rides
       case 3:
-        return const DemoIntercityScreen(); // DEMO: Use demo screen instead of InterCityOrderScreen
+        return const InterCityOrderScreen(); // Real intercity order screen
       case 4:
         return const WalletScreen();
       case 5:

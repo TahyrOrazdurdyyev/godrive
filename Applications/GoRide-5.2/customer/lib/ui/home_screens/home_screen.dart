@@ -37,12 +37,18 @@ import 'package:customer/themes/text_field_them.dart';
 import 'package:customer/utils/DarkThemeProvider.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/utils/fire_store_utils.dart';
+import 'package:customer/utils/order_api.dart';
+import 'package:customer/utils/user_api.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/widget/geoflutterfire/src/geoflutterfire.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/widget/geoflutterfire/src/models/point.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/widget/place_picker_osm.dart';
+import 'package:customer/ui/widgets/turkmenistan_location_picker.dart';
+import 'package:customer/ui/widgets/yandex_location_picker.dart';
+import 'package:latlong2/latlong.dart' as osm;
+import 'package:yandex_mapkit/yandex_mapkit.dart';
 // Google Fonts replaced with local fonts
 import 'package:flutter/material.dart';
 // Google Fonts replaced with local fonts
@@ -63,7 +69,8 @@ import 'package:get/get.dart';
 
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 // Google Fonts replaced with local fonts
-import 'package:google_maps_place_picker_mb/google_maps_place_picker.dart';
+import 'package:google_places_flutter/google_places_flutter.dart';
+import 'package:google_places_flutter/model/prediction.dart' as places_prediction;
 // Google Fonts replaced with local fonts
 import 'package:provider/provider.dart';
 // Google Fonts replaced with local fonts
@@ -76,6 +83,8 @@ class HomeScreen extends StatelessWidget {
     final themeChange = Provider.of<DarkThemeProvider>(context);
     return GetX<HomeController>(
         init: HomeController(),
+        global: true,
+        autoRemove: false,
         builder: (controller) {
           return Scaffold(
             backgroundColor: AppColors.primary,
@@ -134,17 +143,30 @@ class HomeScreen extends StatelessWidget {
                                                 BannerModel bannerModel = controller.bannerList[index];
                                                 return Padding(
                                                   padding: const EdgeInsets.symmetric(horizontal: 10),
-                                                  child: CachedNetworkImage(
-                                                    imageUrl: bannerModel.image.toString(),
-                                                    imageBuilder: (context, imageProvider) => Container(
-                                                      decoration: BoxDecoration(
-                                                        borderRadius: BorderRadius.circular(20),
-                                                        image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
-                                                      ),
+                                                  child: ClipRRect(
+                                                    borderRadius: BorderRadius.circular(20),
+                                                    child: Image.network(
+                                                      bannerModel.image.toString(),
+                                                      fit: BoxFit.cover,
+                                                      loadingBuilder: (context, child, loadingProgress) {
+                                                        if (loadingProgress == null) {
+                                                          print('✅ Banner image loaded: ${bannerModel.image}');
+                                                          return child;
+                                                        }
+                                                        print('🖼️ Loading banner: ${bannerModel.image}');
+                                                        return const Center(child: CircularProgressIndicator());
+                                                      },
+                                                      errorBuilder: (context, error, stackTrace) {
+                                                        print('❌ Banner error: ${bannerModel.image} - $error');
+                                                        return Container(
+                                                          decoration: BoxDecoration(
+                                                            borderRadius: BorderRadius.circular(20),
+                                                            color: Colors.grey,
+                                                          ),
+                                                          child: const Center(child: Icon(Icons.error, color: Colors.white)),
+                                                        );
+                                                      },
                                                     ),
-                                                    color: Colors.black.withOpacity(0.5),
-                                                    placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                                                    fit: BoxFit.cover,
                                                   ),
                                                 );
                                               })),
@@ -160,41 +182,49 @@ class HomeScreen extends StatelessWidget {
                                         ? InkWell(
                                             onTap: () async {
                                               print("::::::::::22::::::::::::");
-                                              if (Constant.selectedMapType == 'osm') {
-                                                Get.to(() => const LocationPicker())?.then((value) async {
-                                                  if (value != null) {
-                                                    controller.sourceLocationController.value.text = value.displayName!;
-                                                    controller.sourceLocationLAtLng.value = LocationLatLng(latitude: value.lat, longitude: value.lon);
-                                                    await controller.calculateDurationAndDistance();
-                                                    controller.calculateAmount();
-                                                  }
-                                                });
-                                              } else {
-                                                await Navigator.push(
+                                              print("🗺️ Map API Key: ${Constant.mapAPIKey}");
+                                              print("🗺️ Map Type: ${Constant.selectedMapType}");
+                                              if (Constant.selectedMapType == 'yandex') {
+                                                // Use Yandex Maps Location Picker
+                                                Navigator.push(
                                                   context,
                                                   MaterialPageRoute(
-                                                    builder: (context) => PlacePicker(
-                                                      apiKey: Constant.mapAPIKey,
-                                                      onPlacePicked: (result) async {
-                                                        Get.back();
-                                                        controller.sourceLocationController.value.text = result.formattedAddress.toString();
-                                                        controller.sourceLocationLAtLng.value =
-                                                            LocationLatLng(latitude: result.geometry!.location.lat, longitude: result.geometry!.location.lng);
+                                                    builder: (context) => YandexLocationPicker(
+                                                      title: 'Select Source Location'.tr,
+                                                      initialLocation: controller.sourceLocationLAtLng.value.latitude != null
+                                                        ? Point(latitude: controller.sourceLocationLAtLng.value.latitude!, longitude: controller.sourceLocationLAtLng.value.longitude!)
+                                                        : null,
+                                                      onLocationSelected: (Point location, String address) async {
+                                                        controller.sourceLocationController.value.text = address;
+                                                        controller.sourceLocationLAtLng.value = LocationLatLng(
+                                                          latitude: location.latitude,
+                                                          longitude: location.longitude,
+                                                        );
                                                         await controller.calculateDurationAndDistance();
                                                         controller.calculateAmount();
                                                       },
-                                                      region: Constant.regionCode != "all" && Constant.regionCode.isNotEmpty ? Constant.regionCode : null,
-                                                      initialPosition: const LatLng(-33.8567844, 151.213108),
-                                                      useCurrentLocation: true,
-                                                      autocompleteComponents:
-                                                          Constant.regionCode != "all" && Constant.regionCode.isNotEmpty ? [Component(Component.country, Constant.regionCode)] : [],
-                                                      // Add this line
-                                                      selectInitialPosition: true,
-                                                      usePinPointingSearch: true,
-                                                      usePlaceDetailSearch: true,
-                                                      zoomGesturesEnabled: true,
-                                                      zoomControlsEnabled: true,
-                                                      resizeToAvoidBottomInset: false, // only works in page mode, less flickery, remove if wrong offsets
+                                                    ),
+                                                  ),
+                                                );
+                                              } else if (Constant.selectedMapType == 'osm') {
+                                                // Use Turkmenistan OSM Location Picker
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) => TurkmenistanLocationPicker(
+                                                      title: 'Select Source Location'.tr,
+                                                      initialLocation: controller.sourceLocationLAtLng.value.latitude != null 
+                                                        ? osm.LatLng(controller.sourceLocationLAtLng.value.latitude!, controller.sourceLocationLAtLng.value.longitude!)
+                                                        : null,
+                                                      onLocationSelected: (osm.LatLng location, String address) async {
+                                                        controller.sourceLocationController.value.text = address;
+                                                        controller.sourceLocationLAtLng.value = LocationLatLng(
+                                                          latitude: location.latitude,
+                                                          longitude: location.longitude,
+                                                        );
+                                                        await controller.calculateDurationAndDistance();
+                                                        controller.calculateAmount();
+                                                      },
                                                     ),
                                                   ),
                                                 );
@@ -221,41 +251,47 @@ class HomeScreen extends StatelessWidget {
                                                     InkWell(
                                                         onTap: () async {
                                                           print("::::::::::33::::::::::::");
-                                                          if (Constant.selectedMapType == 'osm') {
-                                                            Get.to(() => const LocationPicker())?.then((value) async {
-                                                              if (value != null) {
-                                                                controller.sourceLocationController.value.text = value.displayName!;
-                                                                controller.sourceLocationLAtLng.value = LocationLatLng(latitude: value.lat, longitude: value.lon);
-                                                                await controller.calculateDurationAndDistance();
-                                                                controller.calculateAmount();
-                                                              }
-                                                            });
-                                                          } else {
-                                                            await Navigator.push(
+                                                          if (Constant.selectedMapType == 'yandex') {
+                                                            // Use Yandex Maps Location Picker
+                                                            Navigator.push(
                                                               context,
                                                               MaterialPageRoute(
-                                                                builder: (context) => PlacePicker(
-                                                                  apiKey: Constant.mapAPIKey,
-                                                                  onPlacePicked: (result) async {
-                                                                    Get.back();
-                                                                    controller.sourceLocationController.value.text = result.formattedAddress.toString();
-                                                                    controller.sourceLocationLAtLng.value =
-                                                                        LocationLatLng(latitude: result.geometry!.location.lat, longitude: result.geometry!.location.lng);
+                                                                builder: (context) => YandexLocationPicker(
+                                                                  title: 'Select Source Location'.tr,
+                                                                  initialLocation: controller.sourceLocationLAtLng.value.latitude != null 
+                                                                    ? Point(latitude: controller.sourceLocationLAtLng.value.latitude!, longitude: controller.sourceLocationLAtLng.value.longitude!)
+                                                                    : null,
+                                                                  onLocationSelected: (Point location, String address) async {
+                                                                    controller.sourceLocationController.value.text = address;
+                                                                    controller.sourceLocationLAtLng.value = LocationLatLng(
+                                                                      latitude: location.latitude,
+                                                                      longitude: location.longitude,
+                                                                    );
                                                                     await controller.calculateDurationAndDistance();
                                                                     controller.calculateAmount();
                                                                   },
-                                                                  region: Constant.regionCode != "all" && Constant.regionCode.isNotEmpty ? Constant.regionCode : null,
-                                                                  initialPosition: const LatLng(-33.8567844, 151.213108),
-                                                                  useCurrentLocation: true,
-                                                                  autocompleteComponents: Constant.regionCode != "all" && Constant.regionCode.isNotEmpty
-                                                                      ? [Component(Component.country, Constant.regionCode)]
-                                                                      : [],
-                                                                  selectInitialPosition: true,
-                                                                  usePinPointingSearch: true,
-                                                                  usePlaceDetailSearch: true,
-                                                                  zoomGesturesEnabled: true,
-                                                                  zoomControlsEnabled: true,
-                                                                  resizeToAvoidBottomInset: false, // only works in page mode, less flickery, remove if wrong offsets
+                                                                ),
+                                                              ),
+                                                            );
+                                                          } else if (Constant.selectedMapType == 'osm') {
+                                                            // Use Turkmenistan OSM Location Picker
+                                                            Navigator.push(
+                                                              context,
+                                                              MaterialPageRoute(
+                                                                builder: (context) => TurkmenistanLocationPicker(
+                                                                  title: 'Select Source Location'.tr,
+                                                                  initialLocation: controller.sourceLocationLAtLng.value.latitude != null 
+                                                                    ? osm.LatLng(controller.sourceLocationLAtLng.value.latitude!, controller.sourceLocationLAtLng.value.longitude!)
+                                                                    : null,
+                                                                  onLocationSelected: (osm.LatLng location, String address) async {
+                                                                    controller.sourceLocationController.value.text = address;
+                                                                    controller.sourceLocationLAtLng.value = LocationLatLng(
+                                                                      latitude: location.latitude,
+                                                                      longitude: location.longitude,
+                                                                    );
+                                                                    await controller.calculateDurationAndDistance();
+                                                                    controller.calculateAmount();
+                                                                  },
                                                                 ),
                                                               ),
                                                             );
@@ -281,41 +317,47 @@ class HomeScreen extends StatelessWidget {
                                                     InkWell(
                                                         onTap: () async {
                                                           print("::::::::::11::::::::::::");
-                                                          if (Constant.selectedMapType == 'osm') {
-                                                            Get.to(() => const LocationPicker())?.then((value) async {
-                                                              if (value != null) {
-                                                                controller.destinationLocationController.value.text = value.displayName!;
-                                                                controller.destinationLocationLAtLng.value = LocationLatLng(latitude: value.lat, longitude: value.lon);
-                                                                await controller.calculateDurationAndDistance();
-                                                                controller.calculateAmount();
-                                                              }
-                                                            });
-                                                          } else {
-                                                            await Navigator.push(
+                                                          if (Constant.selectedMapType == 'yandex') {
+                                                            // Use Yandex Maps Location Picker
+                                                            Navigator.push(
                                                               context,
                                                               MaterialPageRoute(
-                                                                builder: (context) => PlacePicker(
-                                                                  apiKey: Constant.mapAPIKey,
-                                                                  onPlacePicked: (result) async {
-                                                                    Get.back();
-                                                                    controller.destinationLocationController.value.text = result.formattedAddress.toString();
-                                                                    controller.destinationLocationLAtLng.value =
-                                                                        LocationLatLng(latitude: result.geometry!.location.lat, longitude: result.geometry!.location.lng);
+                                                                builder: (context) => YandexLocationPicker(
+                                                                  title: 'Select Destination'.tr,
+                                                                  initialLocation: controller.destinationLocationLAtLng.value.latitude != null 
+                                                                    ? Point(latitude: controller.destinationLocationLAtLng.value.latitude!, longitude: controller.destinationLocationLAtLng.value.longitude!)
+                                                                    : null,
+                                                                  onLocationSelected: (Point location, String address) async {
+                                                                    controller.destinationLocationController.value.text = address;
+                                                                    controller.destinationLocationLAtLng.value = LocationLatLng(
+                                                                      latitude: location.latitude,
+                                                                      longitude: location.longitude,
+                                                                    );
                                                                     await controller.calculateDurationAndDistance();
                                                                     controller.calculateAmount();
                                                                   },
-                                                                  region: Constant.regionCode != "all" && Constant.regionCode.isNotEmpty ? Constant.regionCode : null,
-                                                                  initialPosition: const LatLng(-33.8567844, 151.213108),
-                                                                  useCurrentLocation: true,
-                                                                  autocompleteComponents: Constant.regionCode != "all" && Constant.regionCode.isNotEmpty
-                                                                      ? [Component(Component.country, Constant.regionCode)]
-                                                                      : [],
-                                                                  selectInitialPosition: true,
-                                                                  usePinPointingSearch: true,
-                                                                  usePlaceDetailSearch: true,
-                                                                  zoomGesturesEnabled: true,
-                                                                  zoomControlsEnabled: true,
-                                                                  resizeToAvoidBottomInset: false, // only works in page mode, less flickery, remove if wrong offsets
+                                                                ),
+                                                              ),
+                                                            );
+                                                          } else if (Constant.selectedMapType == 'osm') {
+                                                            // Use Turkmenistan OSM Location Picker
+                                                            Navigator.push(
+                                                              context,
+                                                              MaterialPageRoute(
+                                                                builder: (context) => TurkmenistanLocationPicker(
+                                                                  title: 'Select Destination'.tr,
+                                                                  initialLocation: controller.destinationLocationLAtLng.value.latitude != null 
+                                                                    ? osm.LatLng(controller.destinationLocationLAtLng.value.latitude!, controller.destinationLocationLAtLng.value.longitude!)
+                                                                    : null,
+                                                                  onLocationSelected: (osm.LatLng location, String address) async {
+                                                                    controller.destinationLocationController.value.text = address;
+                                                                    controller.destinationLocationLAtLng.value = LocationLatLng(
+                                                                      latitude: location.latitude,
+                                                                      longitude: location.longitude,
+                                                                    );
+                                                                    await controller.calculateDurationAndDistance();
+                                                                    controller.calculateAmount();
+                                                                  },
                                                                 ),
                                                               ),
                                                             );
@@ -392,13 +434,23 @@ class HomeScreen extends StatelessWidget {
                                                             )),
                                                         child: Padding(
                                                           padding: const EdgeInsets.all(8.0),
-                                                          child: CachedNetworkImage(
-                                                            imageUrl: serviceModel.image.toString(),
+                                                          child: Image.network(
+                                                            serviceModel.image.toString(),
                                                             fit: BoxFit.contain,
                                                             height: Responsive.height(8, context),
                                                             width: Responsive.width(18, context),
-                                                            placeholder: (context, url) => Constant.loader(),
-                                                            errorWidget: (context, url, error) => Image.network(Constant.userPlaceHolder),
+                                                            loadingBuilder: (context, child, loadingProgress) {
+                                                              if (loadingProgress == null) {
+                                                                print('✅ Service image loaded: ${serviceModel.image}');
+                                                                return child;
+                                                              }
+                                                              print('🖼️ Loading service image: ${serviceModel.image}');
+                                                              return Constant.loader();
+                                                            },
+                                                            errorBuilder: (context, error, stackTrace) {
+                                                              print('❌ Service image error: ${serviceModel.image} - $error');
+                                                              return Image.network(Constant.userPlaceHolder);
+                                                            },
                                                           ),
                                                         ),
                                                       ),
@@ -599,7 +651,8 @@ class HomeScreen extends StatelessWidget {
                                       title: "Book Ride".tr,
                                       btnWidthRatio: Responsive.width(100, context),
                                       onPress: () async {
-                                        bool isPaymentNotCompleted = await FireStoreUtils.paymentStatusCheck();
+                                        // CASH ONLY: No payment status check needed (Firebase disabled)
+                                        bool isPaymentNotCompleted = false; // await FireStoreUtils.paymentStatusCheck();
                                         if (controller.selectedPaymentMethod.value.isEmpty) {
                                           ShowToastDialog.showToast("Please select Payment Method".tr);
                                         } else if (controller.sourceLocationController.value.text.isEmpty) {
@@ -615,6 +668,14 @@ class HomeScreen extends StatelessWidget {
                                           // showDialog(context: context, builder: (BuildContext context) => warningDailog());
                                         } else {
                                           ShowToastDialog.showLoader("Please wait");
+                                          
+                                          // Debug logging
+                                          print('🚗 BookRide: Starting booking process');
+                                          print('🚗 BookRide: Source: ${controller.sourceLocationController.value.text}');
+                                          print('🚗 BookRide: Destination: ${controller.destinationLocationController.value.text}');
+                                          print('🚗 BookRide: Distance: ${controller.distance.value}');
+                                          print('🚗 BookRide: Zone list length: ${controller.zoneList.length}');
+                                          
                                           OrderModel orderModel = OrderModel();
                                           orderModel.id = Constant.getUuid();
                                           orderModel.userId = FireStoreUtils.getCurrentUid();
@@ -648,41 +709,132 @@ class HomeScreen extends StatelessWidget {
                                             orderModel.someOneElse = controller.selectedTakingRide.value;
                                           }
 
-                                          for (int i = 0; i < controller.zoneList.length; i++) {
-                                            print("====>");
-                                            print(controller.sourceLocationLAtLng.value.latitude.toString());
-                                            print(controller.sourceLocationLAtLng.value.longitude.toString());
-
-                                            if (Constant.isPointInPolygon(
-                                                LatLng(double.parse(controller.sourceLocationLAtLng.value.latitude.toString()),
-                                                    double.parse(controller.sourceLocationLAtLng.value.longitude.toString())),
-                                                controller.zoneList[i].area!)) {
-                                              controller.selectedZone.value = controller.zoneList[i];
-                                              orderModel.zoneId = controller.selectedZone.value.id;
-                                              orderModel.zone = controller.selectedZone.value;
-                                              await FireStoreUtils().sendOrderDataFuture(orderModel).then((eventData) async {
-                                                for (var driver in eventData) {
-                                                  if (driver.fcmToken != null) {
-                                                    Map<String, dynamic> playLoad = <String, dynamic>{"type": "city_order", "orderId": orderModel.id};
-                                                    await SendNotification.sendOneNotification(
-                                                        token: driver.fcmToken.toString(),
-                                                        title: 'New Ride Available'.tr,
-                                                        body: 'A customer has placed a ride near your location.'.tr,
-                                                        payload: playLoad);
-                                                  }
-                                                }
-                                              });
-                                              await FireStoreUtils.setOrder(orderModel).then((value) {
+                                          // Check zones
+                                          bool foundValidZone = false;
+                                          print('🚗 BookRide: Checking zones...');
+                                          
+                                          if (controller.zoneList.isEmpty) {
+                                            print('🚗 BookRide: No zones found - allowing ride');
+                                            // No zones configured - allow ride
+                                            foundValidZone = true;
+                                            orderModel.zoneId = "default_zone";
+                                            
+                                            try {
+                                              // Get current user ID
+                                              final uid = FireStoreUtils.getCurrentUid();
+                                              final userResponse = await UserApi.getProfile(uid);
+                                              final userId = userResponse['user']['id'];
+                                              
+                                              // Create order via API
+                                              final response = await OrderApi.createOrder(
+                                                userId: userId,
+                                                serviceId: int.parse(controller.selectedType.value.id ?? '0'),
+                                                sourceLat: controller.sourceLocationLAtLng.value.latitude ?? 0.0,
+                                                sourceLng: controller.sourceLocationLAtLng.value.longitude ?? 0.0,
+                                                sourceLocationName: controller.sourceLocationController.value.text,
+                                                destinationLat: controller.destinationLocationLAtLng.value.latitude ?? 0.0,
+                                                destinationLng: controller.destinationLocationLAtLng.value.longitude ?? 0.0,
+                                                destinationLocationName: controller.destinationLocationController.value.text,
+                                                distance: double.parse(controller.distance.value),
+                                                duration: controller.duration.value,
+                                                offerRate: double.parse(controller.selectedType.value.offerRate == true 
+                                                    ? controller.offerYourRateController.value.text 
+                                                    : controller.amount.value),
+                                                zoneId: null, // No zone
+                                                paymentType: controller.selectedPaymentMethod.value,
+                                                isAcSelected: controller.selectedType.value.isAcNonAc == true ? controller.isAcSelected.value : false,
+                                                someoneElseData: controller.selectedTakingRide.value.fullName != "Myself" 
+                                                    ? controller.selectedTakingRide.value.toJson() 
+                                                    : null,
+                                              );
+                                              
+                                              if (response['success'] == true) {
                                                 ShowToastDialog.showToast("Ride Placed successfully".tr);
                                                 controller.dashboardController.selectedDrawerIndex(2);
-                                                ShowToastDialog.closeLoader();
-                                              });
-                                              break;
-                                            } else {
-                                              ShowToastDialog.showToast(
-                                                  "Services are currently unavailable on the selected location. Please reach out to the administrator for assistance.",
-                                              );
+                                              } else {
+                                                ShowToastDialog.showToast("Failed to place ride".tr);
+                                              }
+                                            } catch (e) {
+                                              print('❌ Error creating order: $e');
+                                              ShowToastDialog.showToast("Failed to place ride: $e".tr);
+                                            } finally {
+                                              ShowToastDialog.closeLoader();
                                             }
+                                          } else {
+                                            // Check zones
+                                            for (int i = 0; i < controller.zoneList.length; i++) {
+                                              print("====>");
+                                              print(controller.sourceLocationLAtLng.value.latitude.toString());
+                                              print(controller.sourceLocationLAtLng.value.longitude.toString());
+                                              print('🚗 BookRide: Checking zone ${i}: ${controller.zoneList[i].name}');
+                                              
+                                              if (controller.zoneList[i].area == null || controller.zoneList[i].area!.isEmpty) {
+                                                print('🚗 BookRide: Zone ${i} has no area defined - skipping');
+                                                continue;
+                                              }
+
+                                              if (Constant.isPointInPolygon(
+                                                  LatLng(double.parse(controller.sourceLocationLAtLng.value.latitude.toString()),
+                                                      double.parse(controller.sourceLocationLAtLng.value.longitude.toString())),
+                                                  controller.zoneList[i].area!)) {
+                                                print('🚗 BookRide: Found valid zone: ${controller.zoneList[i].name}');
+                                                controller.selectedZone.value = controller.zoneList[i];
+                                                orderModel.zoneId = controller.selectedZone.value.id;
+                                                orderModel.zone = controller.selectedZone.value;
+                                                foundValidZone = true;
+                                                
+                                                try {
+                                                  // Get current user ID
+                                                  final uid = FireStoreUtils.getCurrentUid();
+                                                  final userResponse = await UserApi.getProfile(uid);
+                                                  final userId = userResponse['user']['id'];
+                                                  
+                                                  // Create order via API with zone
+                                                  final response = await OrderApi.createOrder(
+                                                    userId: userId,
+                                                    serviceId: int.parse(controller.selectedType.value.id ?? '0'),
+                                                    sourceLat: controller.sourceLocationLAtLng.value.latitude ?? 0.0,
+                                                    sourceLng: controller.sourceLocationLAtLng.value.longitude ?? 0.0,
+                                                    sourceLocationName: controller.sourceLocationController.value.text,
+                                                    destinationLat: controller.destinationLocationLAtLng.value.latitude ?? 0.0,
+                                                    destinationLng: controller.destinationLocationLAtLng.value.longitude ?? 0.0,
+                                                    destinationLocationName: controller.destinationLocationController.value.text,
+                                                    distance: double.parse(controller.distance.value),
+                                                    duration: controller.duration.value,
+                                                    offerRate: double.parse(controller.selectedType.value.offerRate == true 
+                                                        ? controller.offerYourRateController.value.text 
+                                                        : controller.amount.value),
+                                                    zoneId: int.parse(controller.selectedZone.value.id ?? '0'),
+                                                    paymentType: controller.selectedPaymentMethod.value,
+                                                    isAcSelected: controller.selectedType.value.isAcNonAc == true ? controller.isAcSelected.value : false,
+                                                    someoneElseData: controller.selectedTakingRide.value.fullName != "Myself" 
+                                                        ? controller.selectedTakingRide.value.toJson() 
+                                                        : null,
+                                                  );
+                                                  
+                                                  if (response['success'] == true) {
+                                                    ShowToastDialog.showToast("Ride Placed successfully".tr);
+                                                    controller.dashboardController.selectedDrawerIndex(2);
+                                                  } else {
+                                                    ShowToastDialog.showToast("Failed to place ride".tr);
+                                                  }
+                                                } catch (e) {
+                                                  print('❌ Error creating order: $e');
+                                                  ShowToastDialog.showToast("Failed to place ride: $e".tr);
+                                                } finally {
+                                                  ShowToastDialog.closeLoader();
+                                                }
+                                                break;
+                                              }
+                                            }
+                                          }
+                                          
+                                          if (!foundValidZone && controller.zoneList.isNotEmpty) {
+                                            print('🚗 BookRide: No valid zone found');
+                                            ShowToastDialog.closeLoader();
+                                            ShowToastDialog.showToast(
+                                                "Services are currently unavailable on the selected location. Please reach out to the administrator for assistance.",
+                                            );
                                           }
                                         }
                                       },

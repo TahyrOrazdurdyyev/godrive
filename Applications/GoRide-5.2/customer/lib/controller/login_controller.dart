@@ -5,12 +5,13 @@ import 'package:crypto/crypto.dart';
 import 'package:customer/constant/show_toast_dialog.dart';
 import 'package:customer/ui/auth_screen/otp_screen.dart';
 import 'package:customer/ui/dashboard_screen.dart';
-import 'package:customer/services/laravel_service.dart';
+import 'package:customer/utils/user_api.dart';
 import 'package:customer/model/user_model.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class LoginController extends GetxController {
   Rx<TextEditingController> phoneNumberController = TextEditingController().obs;
@@ -22,29 +23,85 @@ class LoginController extends GetxController {
     try {
       ShowToastDialog.showLoader("Please wait");
       
-      // For demo purposes, create a demo user and login directly
-      UserModel? user = await LaravelService.loginUser(
-        firebaseUid: 'demo_${DateTime.now().millisecondsSinceEpoch}',
-        email: 'demo@goride.com',
-        fullName: 'Demo User',
-        phoneNumber: phoneNumberController.value.text,
-        countryCode: countryCode.value,
-        loginType: 'phone',
+      String phoneNumber = countryCode.value + phoneNumberController.value.text;
+      
+      await FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: phoneNumber,
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          // Auto-verification completed
+          UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+          await _handlePhoneAuthSuccess(userCredential);
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          ShowToastDialog.closeLoader();
+          if (e.code == 'too-many-requests') {
+            ShowToastDialog.showToast("Too many requests. Please wait a few minutes and try again.");
+          } else if (e.code == 'invalid-phone-number') {
+            ShowToastDialog.showToast("Invalid phone number format.");
+          } else {
+            ShowToastDialog.showToast("Verification failed: ${e.message}");
+          }
+          debugPrint("Phone verification failed: ${e.code} - ${e.message}");
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          ShowToastDialog.closeLoader();
+          Get.to(() => OtpScreen(), arguments: {
+            'verificationId': verificationId,
+            'phoneNumber': phoneNumber,
+            'countryCode': countryCode.value,
+          });
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          debugPrint("Auto retrieval timeout");
+        },
       );
-      
-      ShowToastDialog.closeLoader();
-      
-      if (user != null) {
-        ShowToastDialog.showToast("Login successful!");
-        Get.offAll(const DashBoardScreen());
-      } else {
-        ShowToastDialog.showToast("Login failed. Please try again.");
-      }
       
     } catch (e) {
       ShowToastDialog.closeLoader();
       ShowToastDialog.showToast("Something went wrong. Please try again.");
-      debugPrint("Login error: $e");
+      debugPrint("Phone auth error: $e");
+    }
+  }
+
+  Future<void> _handlePhoneAuthSuccess(UserCredential userCredential) async {
+    try {
+      User? firebaseUser = userCredential.user;
+      if (firebaseUser != null) {
+        // Get or register user via API
+        final response = await UserApi.getProfile(firebaseUser.uid);
+        UserModel? user;
+        
+        if (response['success'] == true && response['user'] != null) {
+          user = UserModel.fromJson(response['user']);
+        } else {
+          // Register new user
+          final registerResponse = await UserApi.register(
+            uid: firebaseUser.uid,
+            email: firebaseUser.email ?? '',
+            fullName: firebaseUser.displayName ?? 'User',
+            phoneNumber: firebaseUser.phoneNumber ?? phoneNumberController.value.text,
+            countryCode: countryCode.value,
+            loginType: 'phone',
+          );
+          
+          if (registerResponse['success'] == true && registerResponse['user'] != null) {
+            user = UserModel.fromJson(registerResponse['user']);
+          }
+        }
+        
+        ShowToastDialog.closeLoader();
+        
+        if (user != null) {
+          ShowToastDialog.showToast("Login successful!");
+          Get.offAll(const DashBoardScreen());
+        } else {
+          ShowToastDialog.showToast("Login failed. Please try again.");
+        }
+      }
+    } catch (e) {
+      ShowToastDialog.closeLoader();
+      ShowToastDialog.showToast("Login failed. Please try again.");
+      debugPrint("Laravel login error: $e");
     }
   }
 
@@ -64,14 +121,38 @@ class LoginController extends GetxController {
         return null;
       }
 
-      // Login with Laravel API using Google account info
-      UserModel? user = await LaravelService.loginUser(
-        firebaseUid: googleUser.id,
-        email: googleUser.email,
-        fullName: googleUser.displayName ?? 'Google User',
-        loginType: 'google',
-        profilePic: googleUser.photoUrl,
+      // Get Firebase credential for Google user
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
       );
+      
+      // Sign in to Firebase
+      final UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      
+      // Get or register user via API
+      final response = await UserApi.getProfile(userCredential.user!.uid);
+      UserModel? user;
+      
+      if (response['success'] == true && response['user'] != null) {
+        user = UserModel.fromJson(response['user']);
+      } else {
+        // Register new user
+        final registerResponse = await UserApi.register(
+          uid: userCredential.user!.uid,
+          email: googleUser.email,
+          fullName: googleUser.displayName ?? 'Google User',
+          phoneNumber: '',
+          countryCode: '+993',
+          loginType: 'google',
+          profilePic: googleUser.photoUrl,
+        );
+        
+        if (registerResponse['success'] == true && registerResponse['user'] != null) {
+          user = UserModel.fromJson(registerResponse['user']);
+        }
+      }
       
       ShowToastDialog.closeLoader();
       

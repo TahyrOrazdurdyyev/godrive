@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:convert';
 import 'package:country_code_picker/country_code_picker.dart';
 import 'package:driver/constant/constant.dart';
 import 'package:driver/constant/show_toast_dialog.dart';
@@ -8,10 +8,10 @@ import 'package:driver/themes/app_colors.dart';
 import 'package:driver/themes/button_them.dart';
 import 'package:driver/themes/text_field_them.dart';
 import 'package:driver/ui/dashboard_screen.dart';
-import 'package:driver/ui/subscription_plan_screen/subscription_list_screen.dart';
 import 'package:driver/utils/DarkThemeProvider.dart';
-import 'package:driver/utils/fire_store_utils.dart';
 import 'package:driver/utils/notification_service.dart';
+import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/driver_api.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -107,57 +107,79 @@ class InformationScreen extends StatelessWidget {
                           height: 60,
                         ),
                         ButtonThem.buildButton(context, title: "Create account".tr, onPress: () async {
+                          print('🔥 CREATE ACCOUNT BUTTON PRESSED');
+                          
                           if (controller.fullNameController.value.text.isEmpty) {
+                            print('❌ Validation failed: Full name empty');
                             ShowToastDialog.showToast("Please enter full name".tr);
                           } else if (controller.emailController.value.text.isEmpty) {
+                            print('❌ Validation failed: Email empty');
                             ShowToastDialog.showToast("Please enter email".tr);
                           } else if (controller.phoneNumberController.value.text.isEmpty) {
+                            print('❌ Validation failed: Phone number empty');
                             ShowToastDialog.showToast("Please enter phone number".tr);
                           } else if (Constant.validateEmail(controller.emailController.value.text) == false) {
+                            print('❌ Validation failed: Invalid email');
                             ShowToastDialog.showToast("Please enter valid email".tr);
                           } else {
+                            print('✅ All validations passed');
                             ShowToastDialog.showLoader("Please wait".tr);
-                            DriverUserModel userModel = controller.userModel.value;
-                            userModel.fullName = controller.fullNameController.value.text;
-                            userModel.email = controller.emailController.value.text;
-                            userModel.countryCode = controller.countryCode.value;
-                            userModel.phoneNumber = controller.phoneNumberController.value.text;
-                            userModel.documentVerification = false;
-                            userModel.isOnline = false;
-                            userModel.createdAt = Timestamp.now();
-                            String token = await NotificationService.getToken();
-                            userModel.fcmToken = token;
+                            
+                            try {
+                              DriverUserModel userModel = controller.userModel.value;
+                              userModel.fullName = controller.fullNameController.value.text;
+                              userModel.email = controller.emailController.value.text;
+                              userModel.countryCode = controller.countryCode.value;
+                              userModel.phoneNumber = controller.phoneNumberController.value.text;
+                              userModel.documentVerification = false;
+                              userModel.isOnline = false;
+                              String token = await NotificationService.getToken();
+                              userModel.fcmToken = token;
 
-                            await FireStoreUtils.updateDriverUser(userModel).then((value) {
+                              print('🔥 Attempting to register driver via Laravel API...');
+                              print('🔥 Driver UID: ${userModel.id}');
+                              print('🔥 Driver Name: ${userModel.fullName}');
+                              print('🔥 Driver Email: ${userModel.email}');
+                              print('🔥 Driver Phone: ${userModel.countryCode}${userModel.phoneNumber}');
+
+                              // Call Laravel API for registration using DriverApi
+                              final responseData = await DriverApi.register(
+                                uid: userModel.id!,
+                                fullName: userModel.fullName!,
+                                email: userModel.email!,
+                                phone: '${userModel.countryCode}${userModel.phoneNumber}',
+                                countryCode: userModel.countryCode!,
+                                profilePic: userModel.profilePic,
+                                fcmToken: token,
+                              );
+
                               ShowToastDialog.closeLoader();
-                              if (value == true) {
-                                bool isPlanExpire = false;
-                                if (userModel.subscriptionPlan?.id != null) {
-                                  if (userModel.subscriptionExpiryDate == null) {
-                                    if (userModel.subscriptionPlan?.expiryDay == '-1') {
-                                      isPlanExpire = false;
-                                    } else {
-                                      isPlanExpire = true;
-                                    }
-                                  } else {
-                                    DateTime expiryDate = userModel.subscriptionExpiryDate!.toDate();
-                                    isPlanExpire = expiryDate.isBefore(DateTime.now());
-                                  }
-                                } else {
-                                  isPlanExpire = true;
-                                }
 
-                                if (userModel.subscriptionPlanId == null || isPlanExpire == true) {
-                                  if (Constant.adminCommission?.isEnabled == false && Constant.isSubscriptionModelApplied == false) {
-                                    Get.offAll(const DashBoardScreen());
-                                  } else {
-                                    Get.offAll(const SubscriptionListScreen(), arguments: {"isShow": true});
-                                  }
-                                }else{
+                              print('✅ Laravel API response: $responseData');
+
+                              if (responseData['success'] == true) {
+                                print('✅ Driver registered in MySQL - now creating Firestore profile');
+                                  
+                                  // Create driver profile in Firestore
+                                  userModel.fcmToken = token;
+                                  // Profile already created via API during registration
+                                  print('✅ Driver profile created via API');
+                                  
+                                  // Show success toast and redirect to Dashboard
+                                  ShowToastDialog.showToast('Account created successfully!'.tr);
+                                  
+                                  // Redirect to DashBoardScreen (Home Screen)
                                   Get.offAll(const DashBoardScreen());
+                                } else {
+                                  print('❌ API returned success: false');
+                                  ShowToastDialog.showToast(responseData['message'] ?? "Registration failed. Please try again.".tr);
                                 }
-                              }
-                            });
+                            } catch (e, stackTrace) {
+                              print('❌ ERROR during registration: $e');
+                              print('❌ Stack trace: $stackTrace');
+                              ShowToastDialog.closeLoader();
+                              ShowToastDialog.showToast("Error: ${e.toString()}".tr);
+                            }
                           }
                         }),
                       ],

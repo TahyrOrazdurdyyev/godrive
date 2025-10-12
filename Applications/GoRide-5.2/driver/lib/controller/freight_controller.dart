@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:driver/constant/collection_name.dart';
 import 'package:driver/constant/constant.dart';
@@ -14,6 +15,10 @@ import 'package:driver/ui/freight/active_freight_order_screen.dart';
 import 'package:driver/ui/freight/new_orders_freight_screen.dart';
 import 'package:driver/ui/freight/order_freight_screen.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/driver_api.dart';
+import 'package:driver/utils/customer_api.dart';
+import 'package:driver/utils/order_bid_api.dart';
+import 'package:driver/utils/intercity_order_api.dart';
 import 'package:driver/widget/geoflutterfire/src/geoflutterfire.dart';
 import 'package:driver/widget/geoflutterfire/src/models/point.dart';
 import 'package:flutter/material.dart';
@@ -52,43 +57,52 @@ class FreightController extends GetxController {
   acceptOrder(InterCityOrderModel orderModel) async {
     if (double.parse(driverModel.value.walletAmount.toString()) >= double.parse(Constant.minimumAmountToWithdrawal)) {
       ShowToastDialog.showLoader("Please wait".tr);
-      List<dynamic> newAcceptedDriverId = [];
-      if (orderModel.acceptedDriverId != null) {
-        newAcceptedDriverId = orderModel.acceptedDriverId!;
-      } else {
-        newAcceptedDriverId = [];
-      }
-      newAcceptedDriverId.add(FireStoreUtils.getCurrentUid());
-      orderModel.acceptedDriverId = newAcceptedDriverId;
-      orderModel.offerRate = newAmount.value;
-      await FireStoreUtils.setInterCityOrder(orderModel);
-
-      DriverIdAcceptReject driverIdAcceptReject = DriverIdAcceptReject(
+      
+      try {
+        // Create bid via API
+        await OrderBidApi.createOrUpdateBid(
+          orderId: orderModel.id!,
           driverId: FireStoreUtils.getCurrentUid(),
-          acceptedRejectTime: Timestamp.now(),
-          offerAmount: newAmount.value,
-          suggestedDate: orderModel.whenDates,
-          suggestedTime: DateFormat("HH:mm").format(suggestedTime!));
-      await FireStoreUtils.getCustomer(orderModel.userId.toString()).then((value) async {
-        if (value != null) {
-          await SendNotification.sendOneNotification(
-              token: value.fcmToken.toString(), title: 'New Bids'.tr, body: 'Driver requested your ride.'.tr, payload: {});
-        }
-      });
+          status: 'pending',
+          offerAmount: double.parse(newAmount.value),
+          driverNote: 'Suggested date: ${orderModel.whenDates}, time: ${DateFormat("HH:mm").format(suggestedTime!)}',
+          orderType: 'intercity',
+        );
 
-      await FireStoreUtils.acceptInterCityRide(orderModel, driverIdAcceptReject).then((value) async {
+        // Send notification to customer
+        final customerResponse = await CustomerApi.getCustomerProfile(orderModel.userId.toString());
+        if (customerResponse['success'] == true && customerResponse['customer'] != null) {
+          final customer = customerResponse['customer'];
+          if (customer['fcm_token'] != null) {
+            await SendNotification.sendOneNotification(
+              token: customer['fcm_token'].toString(),
+              title: 'New Bids'.tr,
+              body: 'Driver requested your ride.'.tr,
+              payload: {}
+            );
+          }
+        }
+
+        // Update driver subscription if needed
+        if (driverModel.value.subscriptionTotalOrders != "-1") {
+          driverModel.value.subscriptionTotalOrders = (int.parse(driverModel.value.subscriptionTotalOrders.toString()) - 1).toString();
+          await DriverApi.updateProfile(
+            uid: FireStoreUtils.getCurrentUid(),
+            subscriptionTotalOrders: driverModel.value.subscriptionTotalOrders,
+          );
+          getDriver();
+        }
+
         ShowToastDialog.closeLoader();
         ShowToastDialog.showToast("Ride Accepted".tr);
         Get.back();
-        if (value != null && value == true) {
-          if(driverModel.value.subscriptionTotalOrders != "-1"){
-            driverModel.value.subscriptionTotalOrders = (int.parse(driverModel.value.subscriptionTotalOrders.toString()) - 1).toString();
-            await FireStoreUtils.updateDriverUser(driverModel.value);
-            getDriver();
-          }
-          selectedIndex.value = 1;
-        }
-      });
+        selectedIndex.value = 1;
+        
+      } catch (e) {
+        ShowToastDialog.closeLoader();
+        log('❌ Accept order error: $e');
+        ShowToastDialog.showToast("Failed to accept order".tr);
+      }
     } else {
       ShowToastDialog.showToast(
           "You have to minimum ${Constant.amountShow(amount: Constant.minimumDepositToRideAccept)} wallet amount to Accept Order and place a bid".tr);
@@ -126,21 +140,22 @@ class FreightController extends GetxController {
     if (permissionStatus == PermissionStatus.granted) {
       location.enableBackgroundMode(enable: true);
       location.changeSettings(accuracy: LocationAccuracy.high, distanceFilter: double.parse(Constant.driverLocationUpdate.toString()),interval: 2000);
-      location.onLocationChanged.listen((locationData) {
+      location.onLocationChanged.listen((locationData) async {
         print("------>");
         print(locationData);
         Constant.currentLocation = LocationLatLng(latitude: locationData.latitude, longitude: locationData.longitude);
-        FireStoreUtils.getDriverProfile(FireStoreUtils.getCurrentUid()).then((value) {
-          DriverUserModel driverUserModel = value!;
-          if (driverUserModel.isOnline == true) {
-            driverUserModel.location = LocationLatLng(latitude: locationData.latitude, longitude: locationData.longitude);
-            GeoFirePoint position = Geoflutterfire().point(latitude: locationData.latitude!, longitude: locationData.longitude!);
-
-            driverUserModel.position = Positions(geoPoint: position.geoPoint, geohash: position.hash);
-            driverUserModel.rotation = locationData.heading;
-            FireStoreUtils.updateDriverUser(driverUserModel);
-          }
-        });
+        
+        try {
+          // Update location via API
+          await DriverApi.updateLocation(
+            uid: FireStoreUtils.getCurrentUid(),
+            latitude: locationData.latitude!,
+            longitude: locationData.longitude!,
+            rotation: locationData.heading ?? 0.0,
+          );
+        } catch (e) {
+          log('❌ Update location error: $e');
+        }
       });
     } else {
       location.requestPermission().then((permissionStatus) {
@@ -150,18 +165,17 @@ class FreightController extends GetxController {
           location.onLocationChanged.listen((locationData) async {
             Constant.currentLocation = LocationLatLng(latitude: locationData.latitude, longitude: locationData.longitude);
 
-            FireStoreUtils.getDriverProfile(FireStoreUtils.getCurrentUid()).then((value) {
-              DriverUserModel driverUserModel = value!;
-              if (driverUserModel.isOnline == true) {
-                driverUserModel.location = LocationLatLng(latitude: locationData.latitude, longitude: locationData.longitude);
-                driverUserModel.rotation = locationData.heading;
-                GeoFirePoint position = Geoflutterfire().point(latitude: locationData.latitude!, longitude: locationData.longitude!);
-
-                driverUserModel.position = Positions(geoPoint: position.geoPoint, geohash: position.hash);
-
-                FireStoreUtils.updateDriverUser(driverUserModel);
-              }
-            });
+            try {
+              // Update location via API
+              await DriverApi.updateLocation(
+                uid: FireStoreUtils.getCurrentUid(),
+                latitude: locationData.latitude!,
+                longitude: locationData.longitude!,
+                rotation: locationData.heading ?? 0.0,
+              );
+            } catch (e) {
+              log('❌ Update location error: $e');
+            }
           });
         }
       });

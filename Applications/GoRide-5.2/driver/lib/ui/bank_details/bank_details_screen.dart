@@ -103,6 +103,7 @@ class BankDetailsScreen extends StatelessWidget {
                                         bankDetailsModel.accountNumber = controller.accountNumberController.value.text;
                                         bankDetailsModel.otherInformation = controller.otherInformationController.value.text;
 
+                                        // TODO: Implement bank details API endpoint when bank transactions are ready
                                         await FireStoreUtils.updateBankDetails(bankDetailsModel).then((value) {
                                           ShowToastDialog.closeLoader();
                                           ShowToastDialog.showToast("Bank details update successfully".tr);

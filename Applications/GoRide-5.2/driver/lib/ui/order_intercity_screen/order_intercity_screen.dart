@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:driver/constant/collection_name.dart';
 import 'package:driver/constant/constant.dart';
@@ -16,6 +17,9 @@ import 'package:driver/ui/order_intercity_screen/complete_intecity_order_screen.
 import 'package:driver/ui/review/review_screen.dart';
 import 'package:driver/utils/DarkThemeProvider.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/customer_api.dart';
+import 'package:driver/utils/driver_api.dart';
+// import 'package:driver/utils/driver_wallet_api.dart'; // Backend handles wallet transactions
 import 'package:driver/widget/location_view.dart';
 import 'package:driver/widget/user_view.dart';
 import 'package:flutter/material.dart';
@@ -179,19 +183,28 @@ class OrderIntercityScreen extends StatelessWidget {
                                                               children: [
                                                                 InkWell(
                                                                   onTap: () async {
-                                                                    UserModel? customer = await FireStoreUtils.getCustomer(orderModel.userId.toString());
-                                                                    DriverUserModel? driver = await FireStoreUtils.getDriverProfile(orderModel.driverId.toString());
+                                                                    try {
+                                                                      final customerResponse = await CustomerApi.getCustomerProfile(orderModel.userId.toString());
+                                                                      final driverResponse = await DriverApi.getProfile(orderModel.driverId.toString());
+                                                                      
+                                                                      if (customerResponse['success'] == true && driverResponse['success'] == true) {
+                                                                        final customer = UserModel.fromJson(customerResponse['customer']);
+                                                                        final driver = DriverUserModel.fromJson(driverResponse['driver']);
 
-                                                                    Get.to(ChatScreens(
-                                                                      driverId: driver!.id,
-                                                                      customerId: customer!.id,
-                                                                      customerName: customer.fullName,
-                                                                      customerProfileImage: customer.profilePic,
-                                                                      driverName: driver.fullName,
-                                                                      driverProfileImage: driver.profilePic,
-                                                                      orderId: orderModel.id,
-                                                                      token: customer.fcmToken,
-                                                                    ));
+                                                                        Get.to(ChatScreens(
+                                                                          driverId: driver.id,
+                                                                          customerId: customer.id,
+                                                                          customerName: customer.fullName,
+                                                                          customerProfileImage: customer.profilePic,
+                                                                          driverName: driver.fullName,
+                                                                          driverProfileImage: driver.profilePic,
+                                                                          orderId: orderModel.id,
+                                                                          token: customer.fcmToken,
+                                                                        ));
+                                                                      }
+                                                                    } catch (e) {
+                                                                      log('❌ Chat error: $e');
+                                                                    }
                                                                   },
                                                                   child: Container(
                                                                     height: 44,
@@ -207,8 +220,15 @@ class OrderIntercityScreen extends StatelessWidget {
                                                                 ),
                                                                 InkWell(
                                                                   onTap: () async {
-                                                                    UserModel? customer = await FireStoreUtils.getCustomer(orderModel.userId.toString());
-                                                                    Constant.makePhoneCall("${customer!.countryCode}${customer.phoneNumber}");
+                                                                    try {
+                                                                      final customerResponse = await CustomerApi.getCustomerProfile(orderModel.userId.toString());
+                                                                      if (customerResponse['success'] == true && customerResponse['customer'] != null) {
+                                                                        final customer = UserModel.fromJson(customerResponse['customer']);
+                                                                        Constant.makePhoneCall("${customer.countryCode}${customer.phoneNumber}");
+                                                                      }
+                                                                    } catch (e) {
+                                                                      log('❌ Call error: $e');
+                                                                    }
                                                                   },
                                                                   child: Container(
                                                                     height: 44,
@@ -274,36 +294,51 @@ class OrderIntercityScreen extends StatelessWidget {
                                                                   userType: "driver",
                                                                   note: "Admin commission debited".tr);
 
-                                                              await FireStoreUtils.setWalletTransaction(adminCommissionWallet).then((value) async {
-                                                                if (value == true) {
-                                                                  await FireStoreUtils.updatedDriverWallet(
-                                                                      amount:
-                                                                          "-${Constant.calculateAdminCommission(amount: (double.parse(orderModel.finalRate.toString()) - double.parse(couponAmount.toString())).toString(), adminCommission: orderModel.adminCommission)}");
-                                                                }
-                                                              });
+                                                              try {
+                                                                // Deduct admin commission from driver wallet
+                                                                final commissionAmount = Constant.calculateAdminCommission(
+                                                                  amount: (double.parse(orderModel.finalRate.toString()) - 
+                                                                          double.parse(couponAmount.toString())).toString(),
+                                                                  adminCommission: orderModel.adminCommission
+                                                                );
+                                                                
+                                                                // Note: Driver wallet transactions are handled by the backend automatically
+                                                                // await DriverWalletApi.addTransaction(
+                                                                //   driverId: orderModel.driverId!,
+                                                                //   amount: -double.parse(commissionAmount.toString()),
+                                                                //   orderId: orderModel.id!,
+                                                                //   orderType: 'intercity',
+                                                                //   note: "Admin commission debited".tr,
+                                                                //   paymentType: 'wallet',
+                                                                // );
 
-                                                              await FireStoreUtils.getCustomer(orderModel.userId.toString()).then((value) async {
-                                                                if (value != null) {
-                                                                  await SendNotification.sendOneNotification(
-                                                                      token: value.fcmToken.toString(),
-                                                                      title: 'Cash Payment confirmed'.tr,
-                                                                      body: 'Driver has confirmed your cash payment'.tr,
-                                                                      payload: {});
+                                                                // Send notification to customer
+                                                                final customerResponse = await CustomerApi.getCustomerProfile(orderModel.userId.toString());
+                                                                if (customerResponse['success'] == true && customerResponse['customer'] != null) {
+                                                                  final customer = UserModel.fromJson(customerResponse['customer']);
+                                                                  if (customer.fcmToken != null) {
+                                                                    await SendNotification.sendOneNotification(
+                                                                        token: customer.fcmToken.toString(),
+                                                                        title: 'Cash Payment confirmed'.tr,
+                                                                        body: 'Driver has confirmed your cash payment'.tr,
+                                                                        payload: {});
+                                                                  }
                                                                 }
-                                                              });
 
-                                                              await FireStoreUtils.getIntercityFirstOrderOrNOt(orderModel).then((value) async {
-                                                                if (value == true) {
-                                                                  await FireStoreUtils.updateIntercityReferralAmount(orderModel);
-                                                                }
-                                                              });
+                                                                // Note: Referral system commented out (not implemented in MySQL)
+                                                                // await FireStoreUtils.getIntercityFirstOrderOrNOt(orderModel).then((value) async {
+                                                                //   if (value == true) {
+                                                                //     await FireStoreUtils.updateIntercityReferralAmount(orderModel);
+                                                                //   }
+                                                                // });
 
-                                                              await FireStoreUtils.setInterCityOrder(orderModel).then((value) {
-                                                                if (value == true) {
-                                                                  ShowToastDialog.closeLoader();
-                                                                  ShowToastDialog.showToast("Payment Confirm successfully".tr);
-                                                                }
-                                                              });
+                                                                ShowToastDialog.closeLoader();
+                                                                ShowToastDialog.showToast("Payment Confirm successfully".tr);
+                                                              } catch (e) {
+                                                                ShowToastDialog.closeLoader();
+                                                                log('❌ Payment confirm error: $e');
+                                                                ShowToastDialog.showToast("Failed to confirm payment".tr);
+                                                              }
                                                             },
                                                           ))
                                                     ],

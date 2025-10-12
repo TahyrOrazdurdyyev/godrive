@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:developer';
 // Google Fonts replaced with local fonts
 
 import 'package:bottom_picker/bottom_picker.dart';
@@ -40,6 +41,8 @@ import 'package:customer/themes/text_field_them.dart';
 import 'package:customer/utils/DarkThemeProvider.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/utils/fire_store_utils.dart';
+import 'package:customer/utils/intercity_order_api.dart';
+import 'package:customer/utils/user_api.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/widget/geoflutterfire/src/geoflutterfire.dart';
 // Google Fonts replaced with local fonts
@@ -515,7 +518,19 @@ class InterCityScreen extends StatelessWidget {
                                             : "Ride Placed".tr,
                                     btnWidthRatio: Responsive.width(100, context),
                                     onPress: () async {
-                                      bool isPaymentNotCompleted = await FireStoreUtils.paymentStatusCheckIntercity();
+                                      // Check for unpaid intercity orders via API
+                                      bool isPaymentNotCompleted = false;
+                                      try {
+                                        final response = await InterCityOrderApi.getCustomerIntercityOrders(FireStoreUtils.getCurrentUid());
+                                        if (response['success'] == true && response['orders'] != null) {
+                                          List<dynamic> orders = response['orders'];
+                                          isPaymentNotCompleted = orders.any((order) => 
+                                            order['payment_status'] == false || order['payment_status'] == 0
+                                          );
+                                        }
+                                      } catch (e) {
+                                        log('❌ Payment check error: $e');
+                                      }
 
                                       if (isPaymentNotCompleted) {
                                         showAlertDialog(context);
@@ -591,13 +606,48 @@ class InterCityScreen extends StatelessWidget {
                                                       ? controller.selectedInterCityType.value.adminCommission!
                                                       : Constant.adminCommission;
                                                   intercityOrderModel.distanceType = Constant.distanceType;
-                                                  await FireStoreUtils.setInterCityOrder(intercityOrderModel).then((value) {
+                                                  
+                                                  try {
+                                                    // Create intercity order via API
+                                                    final response = await InterCityOrderApi.createIntercityOrder(
+                                                      userId: intercityOrderModel.userId!,
+                                                      serviceId: intercityOrderModel.intercityServiceId!,
+                                                      sourceLat: intercityOrderModel.sourceLocationLAtLng!.latitude!,
+                                                      sourceLng: intercityOrderModel.sourceLocationLAtLng!.longitude!,
+                                                      sourceLocationName: intercityOrderModel.sourceLocationName!,
+                                                      destinationLat: intercityOrderModel.destinationLocationLAtLng!.latitude!,
+                                                      destinationLng: intercityOrderModel.destinationLocationLAtLng!.longitude!,
+                                                      destinationLocationName: intercityOrderModel.destinationLocationName!,
+                                                      distance: intercityOrderModel.distance!,
+                                                      duration: '', // Add if available
+                                                      offerRate: double.parse(intercityOrderModel.offerRate!),
+                                                      paymentType: intercityOrderModel.paymentType!,
+                                                      otp: intercityOrderModel.otp!,
+                                                      whenTime: intercityOrderModel.whenTime!,
+                                                      whenDates: intercityOrderModel.whenDates!,
+                                                      comments: intercityOrderModel.comments ?? '',
+                                                      zoneId: intercityOrderModel.zoneId != null ? int.tryParse(intercityOrderModel.zoneId!) : null,
+                                                      parcelImage: (intercityOrderModel.parcelImage != null && intercityOrderModel.parcelImage!.isNotEmpty) 
+                                                        ? intercityOrderModel.parcelImage!.first.toString() 
+                                                        : null,
+                                                      parcelWeight: intercityOrderModel.parcelWeight,
+                                                      parcelDimension: intercityOrderModel.parcelDimension,
+                                                      sourceCity: intercityOrderModel.sourceCity,
+                                                      destinationCity: intercityOrderModel.destinationCity,
+                                                    );
+                                                    
                                                     ShowToastDialog.closeLoader();
-                                                    if (value == true) {
+                                                    if (response['success'] == true) {
                                                       ShowToastDialog.showToast("Ride Placed successfully".tr);
                                                       controller.dashboardController.selectedDrawerIndex(3);
+                                                    } else {
+                                                      ShowToastDialog.showToast("Failed to create order".tr);
                                                     }
-                                                  });
+                                                  } catch (e) {
+                                                    ShowToastDialog.closeLoader();
+                                                    log('❌ Create order error: $e');
+                                                    ShowToastDialog.showToast("Error creating order".tr);
+                                                  }
                                                 }
                                               } else if (controller.selectedInterCityType.value.id == "Kn2VEnPI3ikF58uK8YqY") {
                                                 if (controller.sourceLocationController.value.text.isEmpty) {
@@ -661,13 +711,45 @@ class InterCityScreen extends StatelessWidget {
                                                   intercityOrderModel.freightVehicle = controller.selectedFreightVehicle.value;
                                                   intercityOrderModel.zoneId = controller.selectedZone.value.id;
                                                   intercityOrderModel.zone = controller.selectedZone.value;
-                                                  await FireStoreUtils.setInterCityOrder(intercityOrderModel).then((value) {
+                                                  
+                                                  try {
+                                                    // Create intercity order via API
+                                                    final response = await InterCityOrderApi.createIntercityOrder(
+                                                      userId: intercityOrderModel.userId!,
+                                                      serviceId: intercityOrderModel.intercityServiceId!,
+                                                      sourceLat: intercityOrderModel.sourceLocationLAtLng!.latitude!,
+                                                      sourceLng: intercityOrderModel.sourceLocationLAtLng!.longitude!,
+                                                      sourceLocationName: intercityOrderModel.sourceLocationName!,
+                                                      destinationLat: intercityOrderModel.destinationLocationLAtLng!.latitude!,
+                                                      destinationLng: intercityOrderModel.destinationLocationLAtLng!.longitude!,
+                                                      destinationLocationName: intercityOrderModel.destinationLocationName!,
+                                                      distance: intercityOrderModel.distance!,
+                                                      duration: '', // Add if available
+                                                      offerRate: double.parse(intercityOrderModel.offerRate!),
+                                                      paymentType: intercityOrderModel.paymentType!,
+                                                      otp: intercityOrderModel.otp!,
+                                                      whenTime: intercityOrderModel.whenTime!,
+                                                      whenDates: intercityOrderModel.whenDates!,
+                                                      comments: intercityOrderModel.comments ?? '',
+                                                      zoneId: intercityOrderModel.zoneId != null ? int.tryParse(intercityOrderModel.zoneId!) : null,
+                                                      parcelWeight: intercityOrderModel.parcelWeight,
+                                                      parcelDimension: intercityOrderModel.parcelDimension,
+                                                      sourceCity: intercityOrderModel.sourceCity,
+                                                      destinationCity: intercityOrderModel.destinationCity,
+                                                    );
+                                                    
                                                     ShowToastDialog.closeLoader();
-                                                    if (value == true) {
+                                                    if (response['success'] == true) {
                                                       ShowToastDialog.showToast("Ride Placed successfully".tr);
                                                       controller.dashboardController.selectedDrawerIndex(3);
+                                                    } else {
+                                                      ShowToastDialog.showToast("Failed to create order".tr);
                                                     }
-                                                  });
+                                                  } catch (e) {
+                                                    ShowToastDialog.closeLoader();
+                                                    log('❌ Create order error: $e');
+                                                    ShowToastDialog.showToast("Error creating order".tr);
+                                                  }
                                                 }
                                               } else {
                                                 if (controller.sourceLocationController.value.text.isEmpty) {
@@ -723,13 +805,45 @@ class InterCityScreen extends StatelessWidget {
                                                   if (controller.selectedTakingRide.value.fullName != "Myself") {
                                                     intercityOrderModel.someOneElse = controller.selectedTakingRide.value;
                                                   }
-                                                  await FireStoreUtils.setInterCityOrder(intercityOrderModel).then((value) {
+                                                  
+                                                  try {
+                                                    // Create intercity order via API
+                                                    final response = await InterCityOrderApi.createIntercityOrder(
+                                                      userId: intercityOrderModel.userId!,
+                                                      serviceId: intercityOrderModel.intercityServiceId!,
+                                                      sourceLat: intercityOrderModel.sourceLocationLAtLng!.latitude!,
+                                                      sourceLng: intercityOrderModel.sourceLocationLAtLng!.longitude!,
+                                                      sourceLocationName: intercityOrderModel.sourceLocationName!,
+                                                      destinationLat: intercityOrderModel.destinationLocationLAtLng!.latitude!,
+                                                      destinationLng: intercityOrderModel.destinationLocationLAtLng!.longitude!,
+                                                      destinationLocationName: intercityOrderModel.destinationLocationName!,
+                                                      distance: intercityOrderModel.distance!,
+                                                      duration: '', // Add if available
+                                                      offerRate: double.parse(intercityOrderModel.offerRate!),
+                                                      paymentType: intercityOrderModel.paymentType!,
+                                                      otp: intercityOrderModel.otp!,
+                                                      whenTime: intercityOrderModel.whenTime!,
+                                                      whenDates: intercityOrderModel.whenDates!,
+                                                      comments: intercityOrderModel.comments ?? '',
+                                                      zoneId: intercityOrderModel.zoneId != null ? int.tryParse(intercityOrderModel.zoneId!) : null,
+                                                      parcelWeight: intercityOrderModel.parcelWeight,
+                                                      parcelDimension: intercityOrderModel.parcelDimension,
+                                                      sourceCity: intercityOrderModel.sourceCity,
+                                                      destinationCity: intercityOrderModel.destinationCity,
+                                                    );
+                                                    
                                                     ShowToastDialog.closeLoader();
-                                                    if (value == true) {
+                                                    if (response['success'] == true) {
                                                       ShowToastDialog.showToast("Ride Placed successfully".tr);
                                                       controller.dashboardController.selectedDrawerIndex(3);
+                                                    } else {
+                                                      ShowToastDialog.showToast("Failed to create order".tr);
                                                     }
-                                                  });
+                                                  } catch (e) {
+                                                    ShowToastDialog.closeLoader();
+                                                    log('❌ Create order error: $e');
+                                                    ShowToastDialog.showToast("Error creating order".tr);
+                                                  }
                                                 }
                                               }
                                               break;

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:driver/model/admin_commission.dart';
 import 'package:driver/model/language_title.dart';
 
@@ -44,15 +45,25 @@ class ServiceModel {
       this.adminCommission});
 
   ServiceModel.fromJson(Map<String, dynamic> json) {
+    print('🔥 Driver: Parsing service: $json');
+    
     image = json['image'];
     enable = json['enable'];
-    offerRate = json['offerRate'];
-    id = json['id'];
+    
+    // Handle offerRate - check both snake_case and camelCase
+    offerRate = json['offerRate'] ?? json['offer_rate'];
+    
+    // Handle id - convert int to String if needed
+    id = json['id']?.toString();
+    
     acCharge = json['acCharge'] ?? '0.0';
     nonAcCharge = json['nonAcCharge'] ?? '0.0';
     basicFare = json['basicFare'] ??  '0.0';
     basicFareCharge = json['basicFareCharge'] ?? '0.0';
-    holdingMinute = json['holdingMinute'] ?? '0.0';
+    
+    // Handle holdingMinute - convert int to String if needed
+    holdingMinute = json['holdingMinute']?.toString() ?? json['holding_minute']?.toString() ?? '0.0';
+    
     holdingMinuteCharge = json['holdingMinuteCharge'] ?? '0.0';
     endNightTime = json['endNightTime'];
     startNightTime = json['startNightTime'];
@@ -62,12 +73,30 @@ class ServiceModel {
     intercityType = json['intercityType'];
     isAcNonAc = json['isAcNonAc'];
     adminCommission = json['adminCommission'] != null ? AdminCommission.fromJson(json['adminCommission']) : AdminCommission(isEnabled: true, amount: "", type: "");
+    
+    // Handle title - can be array or JSON string
     if (json['title'] != null) {
       title = <LanguageTitle>[];
-      json['title'].forEach((v) {
-        title!.add(LanguageTitle.fromJson(v));
-      });
+      if (json['title'] is String) {
+        try {
+          // If it's a JSON string, parse it
+          var titleData = jsonDecode(json['title']);
+          if (titleData is List) {
+            titleData.forEach((v) {
+              title!.add(LanguageTitle.fromJson(v));
+            });
+          }
+        } catch (e) {
+          print('🔥 Driver: Error parsing title string: $e');
+        }
+      } else if (json['title'] is List) {
+        json['title'].forEach((v) {
+          title!.add(LanguageTitle.fromJson(v));
+        });
+      }
     }
+    
+    print('🔥 Driver: Service parsed - id: $id, offerRate: $offerRate');
   }
 
   Map<String, dynamic> toJson() {

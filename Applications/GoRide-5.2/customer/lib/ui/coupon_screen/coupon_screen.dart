@@ -24,6 +24,7 @@ import 'package:customer/themes/responsive.dart';
 import 'package:customer/utils/DarkThemeProvider.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/utils/fire_store_utils.dart';
+import 'package:customer/utils/coupon_api.dart';
 // Google Fonts replaced with local fonts
 import 'package:dotted_border/dotted_border.dart';
 // Google Fonts replaced with local fonts
@@ -232,17 +233,26 @@ class CouponScreen extends StatelessWidget {
                                     onPress: () async {
                                       if (controller.couponController.value.text.isNotEmpty) {
                                         ShowToastDialog.showLoader("Please wait".tr);
-                                        await FireStoreUtils.fireStore.collection(CollectionName.coupon).where('code', isEqualTo: controller.couponController.value.text).where('enable', isEqualTo: true).where('validity',isGreaterThanOrEqualTo: Timestamp.now()).get().then((value) {
+                                        
+                                        try {
+                                          final response = await CouponApi.validateCoupon(
+                                            code: controller.couponController.value.text,
+                                            amount: 0, // Will validate without amount check
+                                          );
+                                          
                                           ShowToastDialog.closeLoader();
-                                          if (value.docs.isNotEmpty) {
-                                            CouponModel couponModel = CouponModel.fromJson(value.docs.first.data());
+                                          
+                                          if (response['success'] == true && response['coupon'] != null) {
+                                            CouponModel couponModel = CouponModel.fromJson(response['coupon']);
                                             Get.back(result: couponModel);
-                                          }else{
-                                            ShowToastDialog.showToast("Coupon code is Invalid".tr);
+                                          } else {
+                                            ShowToastDialog.showToast(response['message'] ?? "Coupon code is Invalid".tr);
                                           }
-                                        }).catchError((error) {
-                                          log(error.toString());
-                                        });
+                                        } catch (e) {
+                                          ShowToastDialog.closeLoader();
+                                          log('❌ Coupon validation error: $e');
+                                          ShowToastDialog.showToast("Coupon code is Invalid".tr);
+                                        }
                                       } else {
                                         ShowToastDialog.showToast("Please Enter coupon code".tr);
                                       }

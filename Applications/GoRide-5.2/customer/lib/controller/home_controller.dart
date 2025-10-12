@@ -15,9 +15,10 @@ import 'package:customer/model/user_model.dart';
 import 'package:customer/model/zone_model.dart';
 import 'package:customer/themes/app_colors.dart';
 import 'package:customer/utils/Preferences.dart';
-import 'package:customer/services/laravel_service.dart';
 import 'package:customer/utils/notification_service.dart';
 import 'package:customer/utils/utils.dart';
+import 'package:customer/utils/service_api.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:get/get.dart';
@@ -72,28 +73,22 @@ class HomeController extends GetxController {
       Constant.currentLocation = await Utils.getCurrentLocation();
       if (Constant.currentLocation == null) return;
 
-      if (Constant.selectedMapType == 'google') {
-        List<Placemark> placeMarks = await placemarkFromCoordinates(
-          Constant.currentLocation!.latitude,
-          Constant.currentLocation!.longitude,
-        );
-        Constant.country = placeMarks.first.country;
-        Constant.city = placeMarks.first.locality;
-        currentLocation.value =
-            "${placeMarks.first.name}, ${placeMarks.first.subLocality}, ${placeMarks.first.locality}, ${placeMarks.first.administrativeArea}, ${placeMarks.first.postalCode}, ${placeMarks.first.country}";
-      } else {
-        Place place = await Nominatim.reverseSearch(
-          lat: Constant.currentLocation!.latitude,
-          lon: Constant.currentLocation!.longitude,
-          zoom: 14,
-          addressDetails: true,
-          extraTags: true,
-          nameDetails: true,
-        );
-        currentLocation.value = place.displayName.toString();
-        Constant.country = place.address?['country'] ?? '';
-        Constant.city = place.address?['city'] ?? '';
-      }
+          if (Constant.selectedMapType == 'google') {
+            List<Placemark> placeMarks = await placemarkFromCoordinates(
+              Constant.currentLocation!.latitude,
+              Constant.currentLocation!.longitude,
+            );
+            Constant.country = placeMarks.first.country;
+            Constant.city = placeMarks.first.locality;
+            currentLocation.value =
+                "${placeMarks.first.name}, ${placeMarks.first.subLocality}, ${placeMarks.first.locality}, ${placeMarks.first.administrativeArea}, ${placeMarks.first.postalCode}, ${placeMarks.first.country}";
+          } else {
+            // Use Yandex Geocoding API for better Turkmenistan coverage
+            await _getAddressFromYandexGeocoding(
+              Constant.currentLocation!.latitude,
+              Constant.currentLocation!.longitude,
+            );
+          }
     } catch (e) {
       ShowToastDialog.showToast(
         "Location access permission is currently unavailable. You're unable to retrieve any location data. Please grant permission from your device settings.",
@@ -102,30 +97,109 @@ class HomeController extends GetxController {
     }
   }
 
+  // Yandex Geocoding API method
+  Future<void> _getAddressFromYandexGeocoding(double lat, double lon) async {
+    try {
+      print('🗺️ Using Yandex Geocoding API for: $lat, $lon');
+      
+      final url = 'https://geocode-maps.yandex.ru/1.x/?apikey=${Constant.yandexAPIKey}&geocode=$lon,$lat&format=json&lang=ru_RU&results=1';
+      
+      final response = await http.get(Uri.parse(url));
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        print('🗺️ Yandex Geocoding response: ${response.body}');
+        
+        final geoObjects = data['response']['GeoObjectCollection']['featureMember'];
+        
+        if (geoObjects != null && geoObjects.isNotEmpty) {
+          final geoObject = geoObjects[0]['GeoObject'];
+          final metaData = geoObject['metaDataProperty']['GeocoderMetaData'];
+          
+          // Get formatted address
+          String formattedAddress = geoObject['name'] ?? '';
+          String description = geoObject['description'] ?? '';
+          
+          if (description.isNotEmpty) {
+            formattedAddress = '$formattedAddress, $description';
+          }
+          
+          // Extract country and city from address components
+          final components = metaData['Address']['Components'] as List?;
+          if (components != null) {
+            for (var component in components) {
+              final kind = component['kind'];
+              final name = component['name'];
+              
+              if (kind == 'country') {
+                Constant.country = name ?? '';
+              } else if (kind == 'locality' || kind == 'province') {
+                Constant.city = name ?? '';
+              }
+            }
+          }
+          
+          currentLocation.value = formattedAddress.isNotEmpty ? formattedAddress : 'Местоположение найдено';
+          print('🗺️ Yandex Geocoding result: $formattedAddress');
+          print('🗺️ Country: ${Constant.country}, City: ${Constant.city}');
+        } else {
+          currentLocation.value = 'Адрес не найден';
+          print('🗺️ Yandex Geocoding: No results found');
+        }
+      } else {
+        print('🗺️ Yandex Geocoding API error: ${response.statusCode}');
+        currentLocation.value = 'Ошибка получения адреса';
+      }
+    } catch (e) {
+      print('🗺️ Yandex Geocoding exception: $e');
+      currentLocation.value = 'Ошибка геокодинга';
+    }
+  }
+
   getServiceType() async {
     try {
-      // Load services from Laravel API
-      List<ServiceModel> services = await LaravelService.getServices();
-      serviceList.value = services;
+      print('🔥 HomeController: Starting to load services...');
       
-      if (serviceList.isNotEmpty) {
-        selectedType.value = serviceList.first;
+      // Load services from Laravel API
+      final servicesResponse = await ServiceApi.getServices();
+      if (servicesResponse['success'] == true && servicesResponse['data'] != null) {
+        serviceList.value = (servicesResponse['data'] as List)
+            .map((json) => ServiceModel.fromJson(json))
+            .toList();
+        
+        if (serviceList.isNotEmpty) {
+          selectedType.value = serviceList.first;
+          print('🔥 HomeController: Selected first service: ${selectedType.value.id}');
+          print('🔥 HomeController: First service image: ${selectedType.value.image}');
+        }
+        print('🔥 HomeController: Loaded ${serviceList.length} services from API');
+        for (var service in serviceList) {
+          print('🔥 Service ${service.id}: image=${service.image}');
+        }
       }
 
       // Load banners from Laravel API
-      List<BannerModel> banners = await LaravelService.getBanners();
-      bannerList.clear();
-      bannerList.addAll(banners);
-
-      // Load user profile from Laravel API
-      UserModel? user = await LaravelService.getUserProfile("current");
-      if (user != null) {
-        userModel.value = user;
+      print('🔥 Loading banners from API...');
+      final bannersResponse = await ServiceApi.getBanners();
+      if (bannersResponse['success'] == true && bannersResponse['data'] != null) {
+        bannerList.clear();
+        bannerList.addAll((bannersResponse['data'] as List)
+            .map((json) => BannerModel.fromJson(json))
+            .toList());
+        print('🔥 Banner list: ${bannerList.length} banners loaded from API');
+        for (var banner in bannerList) {
+          print('🔥 Banner ${banner.id}: image=${banner.image}');
+        }
       }
 
+      // Load user profile from preferences
+      await loadUserData();
+
       isLoading.value = false;
+      print('🔥 HomeController: Loading complete!');
     } catch (e) {
-      print('Error loading services: $e');
+      print('❌ Error loading services: $e');
+      print('❌ Stack trace: ${StackTrace.current}');
       // Fallback to demo data if API fails
       await loadDemoData();
       isLoading.value = false;
@@ -163,7 +237,7 @@ class HomeController extends GetxController {
     }
 
     bannerList.clear();
-    bannerList.addAll([
+    bannerList.addAll(<BannerModel>[
       BannerModel(
         id: "banner_1",
         image: "assets/images/banner_1.png",
@@ -178,19 +252,29 @@ class HomeController extends GetxController {
       ),
     ]);
 
-    userModel.value = UserModel(
-      id: "demo_user_123",
-      fullName: "John Demo User",
-      email: "demo@goride.com",
-      phoneNumber: "+1234567890",
-      fcmToken: "demo_token",
-      walletAmount: "150.00"
-    );
+    // Load user data from preferences
+    await loadUserData();
   }
 
   RxString duration = "".obs;
   RxString distance = "".obs;
   RxString amount = "".obs;
+
+  Future<void> loadUserData() async {
+    try {
+      String? userJson = Preferences.getString(Preferences.user);
+      if (userJson != null && userJson.isNotEmpty) {
+        Map<String, dynamic> userData = json.decode(userJson);
+        userModel.value = UserModel.fromJson(userData);
+      } else {
+        // If no user data in preferences, create empty user model
+        userModel.value = UserModel();
+      }
+    } catch (e) {
+      debugPrint("Error loading user data: $e");
+      userModel.value = UserModel();
+    }
+  }
   RxString acCharge = "".obs;
   RxString nonAcCharge = "".obs;
   RxString basicFare = "".obs;
@@ -276,7 +360,7 @@ class HomeController extends GetxController {
     nonAcCharge.value = selectedType.value.nonAcCharge.toString();
     basicFare.value = selectedType.value.basicFare.toString();
     basicFareCharge.value = selectedType.value.basicFareCharge.toString();
-    isAcNonAc.value = selectedType.value.isAcNonAc!;
+    isAcNonAc.value = selectedType.value.isAcNonAc ?? false;
     String formatTime(String? time) {
       if (time == null || !time.contains(":")) {
         return "00:00";
@@ -343,10 +427,33 @@ class HomeController extends GetxController {
   RxList airPortList = <AriPortModel>[].obs;
 
   getPaymentData() async {
+    print('🔥 HomeController: getPaymentData() called');
     // DEMO: Load static payment data
     await Future.delayed(Duration(milliseconds: 300)); // Simulate loading
     
-    paymentModel.value = PaymentModel();
+    // Create PaymentModel with ONLY cash payment enabled
+    print('🔥 HomeController: Creating PaymentModel with ONLY Cash enabled');
+    paymentModel.value = PaymentModel(
+      // ONLY CASH ENABLED
+      cash: Wallet(
+        enable: true,
+        name: "Cash"
+      ),
+      // ALL OTHER PAYMENT METHODS DISABLED
+      wallet: Wallet(enable: false, name: "Wallet"),
+      strip: Strip(enable: false, name: "Stripe"),
+      flutterWave: FlutterWave(enable: false, name: "FlutterWave"),
+      payStack: PayStack(enable: false, name: "PayStack"),
+      mercadoPago: MercadoPago(enable: false, name: "MercadoPago"),
+      razorpay: RazorpayModel(enable: false, name: "Razorpay"),
+      paytm: Paytm(enable: false, name: "Paytm"),
+      payfast: Payfast(enable: false, name: "Payfast"),
+      paypal: Paypal(enable: false, name: "Paypal"),
+      xendit: Xendit(enable: false, name: "Xendit"),
+      orangePay: OrangePay(enable: false, name: "OrangePay"),
+      midtrans: Midtrans(enable: false, name: "Midtrans")
+    );
+    print('🔥 HomeController: PaymentModel created successfully');
 
     // Create demo zones
     zoneList.value = [

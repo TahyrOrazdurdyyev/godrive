@@ -19,6 +19,8 @@ import 'package:customer/themes/text_field_them.dart';
 import 'package:customer/utils/DarkThemeProvider.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/utils/fire_store_utils.dart';
+import 'package:customer/utils/review_api.dart';
+import 'package:customer/utils/user_api.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/widget/my_separator.dart';
 // Google Fonts replaced with local fonts
@@ -168,42 +170,42 @@ class ReviewScreen extends StatelessWidget {
                                       if (controller.rating.value > 0 && controller.commentController.value.text.isNotEmpty) {
                                         ShowToastDialog.showLoader("Please wait".tr);
 
-                                        await FireStoreUtils.getDriver(controller.type.value == "orderModel"
-                                                ? controller.orderModel.value.driverId.toString()
-                                                : controller.intercityOrderModel.value.driverId.toString())
-                                            .then((value) async {
-                                          if (value != null) {
-                                            DriverUserModel driverUserModel = value;
+                                        try {
+                                          // Get current user ID
+                                          final uid = FireStoreUtils.getCurrentUid();
+                                          final userResponse = await UserApi.getProfile(uid);
+                                          final userId = userResponse['user']['id'];
+                                          
+                                          // Get driver ID and order ID
+                                          final driverId = controller.type.value == "orderModel" 
+                                              ? controller.orderModel.value.driverId 
+                                              : controller.intercityOrderModel.value.driverId;
+                                          
+                                          final orderId = controller.type.value == "orderModel" 
+                                              ? controller.orderModel.value.id 
+                                              : controller.intercityOrderModel.value.id;
 
-                                            if (controller.reviewModel.value.id != null) {
-                                              driverUserModel.reviewsSum =
-                                                  (double.parse(driverUserModel.reviewsSum.toString()) - double.parse(controller.reviewModel.value.rating.toString())).toString();
-                                              driverUserModel.reviewsCount = (double.parse(driverUserModel.reviewsCount.toString()) - 1).toString();
-                                            }
-                                            driverUserModel.reviewsSum =
-                                                (double.parse(driverUserModel.reviewsSum.toString()) + double.parse(controller.rating.value.toString())).toString();
-                                            driverUserModel.reviewsCount = (double.parse(driverUserModel.reviewsCount.toString()) + 1).toString();
-                                            await FireStoreUtils.updateDriver(driverUserModel);
-                                          }
-                                        });
+                                          // Submit review via API (backend automatically updates driver rating)
+                                          final response = await ReviewApi.createReview(
+                                            userId: userId,
+                                            driverId: int.parse(driverId ?? '0'),
+                                            orderId: int.parse(orderId ?? '0'),
+                                            rating: controller.rating.value,
+                                            comment: controller.commentController.value.text,
+                                          );
 
-                                        controller.reviewModel.value.id =
-                                            controller.type.value == "orderModel" ? controller.orderModel.value.id : controller.intercityOrderModel.value.id;
-                                        controller.reviewModel.value.comment = controller.commentController.value.text;
-                                        controller.reviewModel.value.rating = controller.rating.value.toString();
-                                        controller.reviewModel.value.customerId = FireStoreUtils.getCurrentUid();
-                                        controller.reviewModel.value.driverId =
-                                            controller.type.value == "orderModel" ? controller.orderModel.value.driverId : controller.intercityOrderModel.value.driverId;
-                                        controller.reviewModel.value.date = Timestamp.now();
-                                        controller.reviewModel.value.type = controller.type.value == "orderModel" ? "city" : "intercity";
-
-                                        await FireStoreUtils.setReview(controller.reviewModel.value).then((value) {
-                                          if (value != null && value == true) {
-                                            ShowToastDialog.closeLoader();
+                                          ShowToastDialog.closeLoader();
+                                          
+                                          if (response['success'] == true) {
                                             ShowToastDialog.showToast("Review submit successfully".tr);
                                             Get.back();
+                                          } else {
+                                            ShowToastDialog.showToast(response['message'] ?? "Failed to submit review".tr);
                                           }
-                                        });
+                                        } catch (e) {
+                                          ShowToastDialog.closeLoader();
+                                          ShowToastDialog.showToast("Failed to submit review: $e".tr);
+                                        }
                                       } else {
                                         ShowToastDialog.showToast("Please give rate in star and add feedback comment.".tr);
                                       }

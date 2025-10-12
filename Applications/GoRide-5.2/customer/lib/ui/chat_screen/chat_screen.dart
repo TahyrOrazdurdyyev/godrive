@@ -28,6 +28,8 @@ import 'package:customer/ui/chat_screen/FullScreenVideoViewer.dart';
 import 'package:customer/utils/DarkThemeProvider.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/utils/fire_store_utils.dart';
+import 'package:customer/utils/conversation_api.dart';
+import 'package:customer/utils/user_api.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/widget/firebase_pagination/src/firestore_pagination.dart';
 // Google Fonts replaced with local fonts
@@ -362,43 +364,49 @@ class _ChatScreensState extends State<ChatScreens> {
         customerProfileImage: widget.customerProfileImage,
         lastMessage: _messageController.text);
 
-    await FireStoreUtils.addInBox(inboxModel);
-
-    ConversationModel conversationModel = ConversationModel(
-        id: const Uuid().v4(),
-        message: message,
-        senderId: FireStoreUtils.getCurrentUid(),
-        receiverId: widget.driverId,
-        createdAt: Timestamp.now(),
-        url: url,
-        orderId: widget.orderId,
-        messageType: messageType,
-        videoThumbnail: videoThumbnail);
-
-    if (url != null) {
-      if (url.mime.contains('image')) {
-        conversationModel.message = "sent an image";
-      } else if (url.mime.contains('video')) {
-        conversationModel.message = "sent an Video";
-      } else if (url.mime.contains('audio')) {
-        conversationModel.message = "Sent a voice message";
+    // Send message via API
+    try {
+      final uid = FireStoreUtils.getCurrentUid();
+      final userResponse = await UserApi.getProfile(uid);
+      final customerId = userResponse['user']['id'];
+      
+      String finalMessage = message;
+      if (url != null) {
+        if (url.mime.contains('image')) {
+          finalMessage = "sent an image";
+        } else if (url.mime.contains('video')) {
+          finalMessage = "sent an Video";
+        } else if (url.mime.contains('audio')) {
+          finalMessage = "Sent a voice message";
+        }
       }
+      
+      await ConversationApi.sendMessage(
+        orderId: int.parse(widget.orderId ?? '0'),
+        customerId: customerId,
+        driverId: int.parse(widget.driverId ?? '0'),
+        senderType: 'customer',
+        message: finalMessage,
+        messageType: messageType ?? 'text',
+        fileUrl: url?.url,
+      );
+      
+      // Send notification
+      Map<String, dynamic> playLoad = <String, dynamic>{
+        "type": "chat",
+        "driverId": widget.driverId,
+        "customerId": widget.customerId,
+        "orderId": widget.orderId,
+      };
+
+      SendNotification.sendOneNotification(
+          title: "${widget.customerName} ${messageType == "image" ? "sent image to you" : messageType == "video" ? "sent video to you" : "sent message to you"}",
+          body: finalMessage,
+          token: widget.token.toString(),
+          payload: playLoad);
+    } catch (e) {
+      print('❌ Error sending message: $e');
     }
-
-    await FireStoreUtils.addChat(conversationModel);
-
-    Map<String, dynamic> playLoad = <String, dynamic>{
-      "type": "chat",
-      "driverId": widget.driverId,
-      "customerId": widget.customerId,
-      "orderId": widget.orderId,
-    };
-
-    SendNotification.sendOneNotification(
-        title: "${widget.customerName} ${messageType == "image" ? messageType == "video" ? "sent video to you" : "sent image to you" : "sent message to you"}",
-        body: conversationModel.message.toString(),
-        token: widget.token.toString(),
-        payload: playLoad);
   }
 
   final ImagePicker _imagePicker = ImagePicker();

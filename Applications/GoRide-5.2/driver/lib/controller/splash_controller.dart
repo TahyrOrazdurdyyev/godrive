@@ -8,6 +8,7 @@ import 'package:driver/ui/on_boarding_screen.dart';
 import 'package:driver/ui/subscription_plan_screen/subscription_list_screen.dart';
 import 'package:driver/utils/Preferences.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/driver_api.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
 
@@ -25,37 +26,46 @@ class SplashController extends GetxController {
     } else {
       bool isLogin = await FireStoreUtils.isLogin();
       if (isLogin == true) {
-        await FireStoreUtils.getDriverProfile(FirebaseAuth.instance.currentUser!.uid).then(
-          (value) {
-            if (value != null) {
-              DriverUserModel userModel = value;
-              bool isPlanExpire = false;
-              if (userModel.subscriptionPlan?.id != null) {
-                if (userModel.subscriptionExpiryDate == null) {
-                  if (userModel.subscriptionPlan?.expiryDay == '-1') {
-                    isPlanExpire = false;
-                  } else {
-                    isPlanExpire = true;
-                  }
-                } else {
-                  DateTime expiryDate = userModel.subscriptionExpiryDate!.toDate();
-                  isPlanExpire = expiryDate.isBefore(DateTime.now());
-                }
+        try {
+          // Get profile from API
+          final uid = FirebaseAuth.instance.currentUser!.uid;
+          final response = await DriverApi.getProfile(uid);
+          
+          if (response['success'] == true && response['driver'] != null) {
+            DriverUserModel userModel = DriverUserModel.fromJson(response['driver']);
+            
+            // Check subscription expiry
+            bool isPlanExpire = false;
+            if (userModel.subscriptionPlanId != null) {
+              if (userModel.subscriptionExpiryDate == null) {
+                // If no expiry date set, check if plan has unlimited duration
+                isPlanExpire = false; // Assume active if no expiry
               } else {
-                isPlanExpire = true;
+                DateTime expiryDate = userModel.subscriptionExpiryDate!.toDate();
+                isPlanExpire = expiryDate.isBefore(DateTime.now());
               }
-              if (userModel.subscriptionPlanId == null || isPlanExpire == true) {
-                if (Constant.adminCommission?.isEnabled == false && Constant.isSubscriptionModelApplied == false) {
-                  Get.offAll(const DashBoardScreen());
-                } else {
-                  Get.offAll(const SubscriptionListScreen(), arguments: {"isShow": true});
-                }
-              } else {
-                Get.offAll(const DashBoardScreen());
-              }
+            } else {
+              isPlanExpire = true; // No subscription
             }
-          },
-        );
+            
+            // Navigate based on subscription status
+            if (userModel.subscriptionPlanId == null || isPlanExpire == true) {
+              if (Constant.adminCommission?.isEnabled == false && Constant.isSubscriptionModelApplied == false) {
+                Get.offAll(const DashBoardScreen());
+              } else {
+                Get.offAll(const SubscriptionListScreen(), arguments: {"isShow": true});
+              }
+            } else {
+              Get.offAll(const DashBoardScreen());
+            }
+          } else {
+            // API failed, go to dashboard
+            Get.offAll(const DashBoardScreen());
+          }
+        } catch (e) {
+          print('❌ Error in splash: $e');
+          Get.offAll(const DashBoardScreen());
+        }
       } else {
         Get.offAll(const LoginScreen());
       }

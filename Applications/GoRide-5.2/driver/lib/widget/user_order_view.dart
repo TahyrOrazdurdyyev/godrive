@@ -3,6 +3,8 @@ import 'package:driver/constant/constant.dart';
 import 'package:driver/model/user_model.dart';
 import 'package:driver/themes/app_colors.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/driver_api.dart';
+import 'package:driver/utils/customer_api.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -12,10 +14,22 @@ class UserDriverView extends StatelessWidget {
 
   const UserDriverView({super.key, this.userId, this.amount});
 
+  Future<UserModel?> _getCustomer() async {
+    try {
+      final response = await CustomerApi.getCustomerProfile(userId.toString());
+      if (response['success'] == true && response['customer'] != null) {
+        return UserModel.fromJson(response['customer']);
+      }
+    } catch (e) {
+      print('❌ Get customer error: $e');
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<UserModel?>(
-        future: FireStoreUtils.getCustomer(userId.toString()),
+        future: _getCustomer(),
         builder: (context, snapshot) {
           switch (snapshot.connectionState) {
             case ConnectionState.waiting:

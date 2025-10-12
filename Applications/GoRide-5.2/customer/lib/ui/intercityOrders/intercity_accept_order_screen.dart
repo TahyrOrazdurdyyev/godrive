@@ -1,6 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-// Google Fonts replaced with local fonts
-import 'package:customer/constant/collection_name.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/constant/constant.dart';
 // Google Fonts replaced with local fonts
@@ -12,8 +9,6 @@ import 'package:customer/model/driver_user_model.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/model/intercity_order_model.dart';
 // Google Fonts replaced with local fonts
-import 'package:customer/model/order/driverId_accept_reject.dart';
-// Google Fonts replaced with local fonts
 import 'package:customer/themes/app_colors.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/themes/button_them.dart';
@@ -22,7 +17,11 @@ import 'package:customer/themes/responsive.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/utils/DarkThemeProvider.dart';
 // Google Fonts replaced with local fonts
-import 'package:customer/utils/fire_store_utils.dart';
+import 'package:customer/utils/driver_api.dart';
+// Google Fonts replaced with local fonts
+import 'package:customer/utils/intercity_order_api.dart';
+// Google Fonts replaced with local fonts
+import 'package:customer/utils/order_bid_api.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/widget/driver_view.dart';
 // Google Fonts replaced with local fonts
@@ -34,7 +33,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 // Google Fonts replaced with local fonts
 import 'package:get/get.dart';
 // Google Fonts replaced with local fonts
-
+import 'dart:developer';
 import 'package:provider/provider.dart';
 // Google Fonts replaced with local fonts
 
@@ -75,19 +74,13 @@ class InterCityAcceptOrderScreen extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       child: Padding(
                         padding: const EdgeInsets.only(top: 10),
-                        child: StreamBuilder(
-                          stream: FirebaseFirestore.instance.collection(CollectionName.ordersIntercity).doc(controller.orderModel.value.id).snapshots(),
-                          builder: (context, snapshot) {
-                            if (snapshot.hasError) {
-                              return  Center(child: Text('Something went wrong'.tr));
-                            }
+                        child: Obx(() {
+                          if (controller.isLoading.value) {
+                            return Constant.loader();
+                          }
 
-                            if (snapshot.connectionState == ConnectionState.waiting) {
-                              return Constant.loader();
-                            }
-
-                            InterCityOrderModel orderModel = InterCityOrderModel.fromJson((snapshot.data! as DocumentSnapshot).data()! as Map<String, dynamic>);
-                            return Column(
+                          InterCityOrderModel orderModel = controller.orderModel.value;
+                          return Column(
                               children: [
                                 Padding(
                                   padding: const EdgeInsets.all(15.0),
@@ -149,50 +142,31 @@ class InterCityAcceptOrderScreen extends StatelessWidget {
                                         title: "Cancel".tr,
                                         btnHeight: 44,
                                         onPress: () async {
-                                          List<dynamic> acceptDriverId = [];
-
-                                          orderModel.status = Constant.rideCanceled;
-                                          orderModel.acceptedDriverId = acceptDriverId;
-                                          await FireStoreUtils.setInterCityOrder(orderModel).then((value) {
+                                          try {
+                                            await InterCityOrderApi.cancelIntercityOrder(orderModel.id!);
                                             Get.back();
-                                          });
+                                          } catch (e) {
+                                            log('❌ Cancel error: $e');
+                                          }
                                         },
                                       )
                                     ],
                                   ),
                                 ),
                                 Expanded(
-                                  child: orderModel.acceptedDriverId == null || orderModel.acceptedDriverId!.isEmpty
+                                  child: controller.acceptedBids.isEmpty
                                       ?  Center(
                                           child: Text("No driver Found".tr),
                                         )
                                       : ListView.builder(
                                           shrinkWrap: true,
-                                          itemCount: orderModel.acceptedDriverId!.length,
+                                          itemCount: controller.acceptedBids.length,
                                           itemBuilder: (context, index) {
-                                            return FutureBuilder<DriverUserModel?>(
-                                                future: FireStoreUtils.getDriver(orderModel.acceptedDriverId![index]),
-                                                builder: (context, snapshot) {
-                                                  switch (snapshot.connectionState) {
-                                                    case ConnectionState.waiting:
-                                                      return Constant.loader();
-                                                    case ConnectionState.done:
-                                                      if (snapshot.hasError) {
-                                                        return Text(snapshot.error.toString());
-                                                      } else {
-                                                        DriverUserModel driverModel = snapshot.data!;
-                                                        return FutureBuilder<DriverIdAcceptReject?>(
-                                                            future: FireStoreUtils.getInterCItyAcceptedOrders(orderModel.id.toString(), driverModel.id.toString()),
-                                                            builder: (context, snapshot) {
-                                                              switch (snapshot.connectionState) {
-                                                                case ConnectionState.waiting:
-                                                                  return Constant.loader();
-                                                                case ConnectionState.done:
-                                                                  if (snapshot.hasError) {
-                                                                    return Text(snapshot.error.toString());
-                                                                  } else {
-                                                                    DriverIdAcceptReject driverIdAcceptReject = snapshot.data!;
-                                                                    return Padding(
+                                            final bid = controller.acceptedBids[index];
+                                            // Parse driver from bid
+                                            DriverUserModel driverModel = _getDriverFromBid(bid);
+                                            
+                                            return Padding(
                                                                       padding: const EdgeInsets.symmetric(horizontal: 10,vertical: 5),
                                                                       child: Container(
                                                                         decoration: BoxDecoration(
@@ -291,31 +265,26 @@ class InterCityAcceptOrderScreen extends StatelessWidget {
                                                                                       btnHeight: 45,
                                                                                       iconVisibility: false,
                                                                                       onPress: () async {
-                                                                                        List<dynamic> rejectDriverId = [];
-                                                                                        if (controller.orderModel.value.rejectedDriverId != null) {
-                                                                                          rejectDriverId = controller.orderModel.value.rejectedDriverId!;
-                                                                                        } else {
-                                                                                          rejectDriverId = [];
+                                                                                        try {
+                                                                                          // Update bid status to rejected
+                                                                                          await OrderBidApi.createOrUpdateBid(
+                                                                                            orderId: orderModel.id!,
+                                                                                            driverId: int.parse(driverModel.id!),
+                                                                                            status: 'rejected',
+                                                                                            orderType: 'intercity',
+                                                                                          );
+                                                                                          
+                                                                                          await SendNotification.sendOneNotification(
+                                                                                              token: driverModel.fcmToken.toString(),
+                                                                                              title: 'Ride Canceled'.tr,
+                                                                                              body: 'The passenger has canceled the ride. No action is required from your end.'.tr,
+                                                                                              payload: {});
+                                                                                          
+                                                                                          // Refresh bids
+                                                                                          controller.loadAcceptedBids();
+                                                                                        } catch (e) {
+                                                                                          log('❌ Reject error: $e');
                                                                                         }
-                                                                                        rejectDriverId.add(driverModel.id);
-
-                                                                                        List<dynamic> acceptDriverId = [];
-                                                                                        if (controller.orderModel.value.acceptedDriverId != null) {
-                                                                                          acceptDriverId = controller.orderModel.value.acceptedDriverId!;
-                                                                                        } else {
-                                                                                          acceptDriverId = [];
-                                                                                        }
-
-                                                                                        acceptDriverId.remove(driverModel.id);
-
-                                                                                        controller.orderModel.value.rejectedDriverId = rejectDriverId;
-                                                                                        controller.orderModel.value.acceptedDriverId = acceptDriverId;
-                                                                                        await SendNotification.sendOneNotification(
-                                                                                            token: driverModel.fcmToken.toString(),
-                                                                                            title: 'Ride Canceled'.tr,
-                                                                                            body: 'The passenger has canceled the ride. No action is required from your end.'.tr,
-                                                                                            payload: {});
-                                                                                        await FireStoreUtils.setInterCityOrder(controller.orderModel.value);
                                                                                       },
                                                                                     ),
                                                                                   ),
@@ -328,17 +297,27 @@ class InterCityAcceptOrderScreen extends StatelessWidget {
                                                                                       title: "Accept".tr,
                                                                                       btnHeight: 45,
                                                                                       onPress: () async {
-                                                                                        orderModel.acceptedDriverId = [];
-                                                                                        orderModel.driverId = driverIdAcceptReject.driverId.toString();
-                                                                                        orderModel.status = Constant.rideActive;
-                                                                                        orderModel.finalRate = driverIdAcceptReject.offerAmount;
-                                                                                        await SendNotification.sendOneNotification(
-                                                                                            token: driverModel.fcmToken.toString(),
-                                                                                            title: 'Ride Confirmed',
-                                                                                            body: 'Your ride request has been accepted by the passenger. Please proceed to the pickup location.'.tr,
-                                                                                            payload: {});
-                                                                                        FireStoreUtils.setInterCityOrder(orderModel);
-                                                                                        Get.back();
+                                                                                        try {
+                                                                                          // Update intercity order via API
+                                                                                          await InterCityOrderApi.updateIntercityOrder(
+                                                                                            orderId: orderModel.id!,
+                                                                                            data: {
+                                                                                              'driver_id': driverModel.id,
+                                                                                              'status': Constant.rideActive,
+                                                                                              'final_rate': bid['offer_amount'],
+                                                                                            },
+                                                                                          );
+                                                                                          
+                                                                                          await SendNotification.sendOneNotification(
+                                                                                              token: driverModel.fcmToken.toString(),
+                                                                                              title: 'Ride Confirmed',
+                                                                                              body: 'Your ride request has been accepted by the passenger. Please proceed to the pickup location.'.tr,
+                                                                                              payload: {});
+                                                                                          
+                                                                                          Get.back();
+                                                                                        } catch (e) {
+                                                                                          log('❌ Accept error: $e');
+                                                                                        }
                                                                                       },
                                                                                     ),
                                                                                   )
@@ -349,23 +328,12 @@ class InterCityAcceptOrderScreen extends StatelessWidget {
                                                                         ),
                                                                       ),
                                                                     );
-                                                                  }
-                                                                default:
-                                                                  return  Text('Error'.tr);
-                                                              }
-                                                            });
-                                                      }
-                                                    default:
-                                                      return  Text('Error'.tr);
-                                                  }
-                                                });
                                           },
                                         ),
                                 )
                               ],
                             );
-                          },
-                        ),
+                          }),
                       ),
                     ),
                   ),
@@ -374,5 +342,19 @@ class InterCityAcceptOrderScreen extends StatelessWidget {
             ),
           );
         });
+  }
+  
+  /// Helper to parse driver from bid
+  DriverUserModel _getDriverFromBid(Map<String, dynamic> bid) {
+    DriverUserModel driver = DriverUserModel();
+    driver.id = bid['driver_id'].toString();
+    driver.fullName = bid['driver_name'] ?? '';
+    driver.profilePic = bid['driver_profile_pic'] ?? '';
+    driver.phoneNumber = bid['driver_phone'] ?? '';
+    driver.email = bid['driver_email'] ?? '';
+    driver.reviewsSum = bid['reviews_sum']?.toString() ?? '0';
+    driver.reviewsCount = bid['reviews_count']?.toString() ?? '0';
+    // Vehicle information should be fetched separately if needed
+    return driver;
   }
 }

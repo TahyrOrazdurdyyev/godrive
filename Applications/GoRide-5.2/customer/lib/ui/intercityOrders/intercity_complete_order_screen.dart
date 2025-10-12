@@ -17,6 +17,7 @@ import 'package:customer/themes/responsive.dart';
 import 'package:customer/utils/DarkThemeProvider.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/utils/fire_store_utils.dart';
+import 'package:customer/utils/driver_api.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/widget/driver_view.dart';
 // Google Fonts replaced with local fonts
@@ -33,6 +34,20 @@ import 'package:get/get.dart';
 
 import 'package:provider/provider.dart';
 // Google Fonts replaced with local fonts
+import 'dart:developer';
+
+/// Helper function to get driver from API
+Future<DriverUserModel?> _getDriver(String driverId) async {
+  try {
+    final response = await DriverApi.getProfile(driverId);
+    if (response['success'] == true && response['driver'] != null) {
+      return DriverUserModel.fromJson(response['driver']);
+    }
+  } catch (e) {
+    log('❌ Error loading driver: $e');
+  }
+  return null;
+}
 
 class IntercityCompleteOrderScreen extends StatelessWidget {
   const IntercityCompleteOrderScreen({Key? key}) : super(key: key);
@@ -160,7 +175,7 @@ class IntercityCompleteOrderScreen extends StatelessWidget {
                                           height: 10,
                                         ),
                                         FutureBuilder<DriverUserModel?>(
-                                            future: FireStoreUtils.getDriver(controller.orderModel.value.driverId.toString()),
+                                            future: _getDriver(controller.orderModel.value.driverId.toString()),
                                             builder: (context, snapshot) {
                                               switch (snapshot.connectionState) {
                                                 case ConnectionState.waiting:

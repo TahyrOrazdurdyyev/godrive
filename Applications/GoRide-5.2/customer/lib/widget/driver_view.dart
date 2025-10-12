@@ -7,6 +7,7 @@ import 'package:customer/model/driver_user_model.dart';
 import 'package:customer/themes/app_colors.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/utils/fire_store_utils.dart';
+import 'package:customer/utils/driver_api.dart';
 // Google Fonts replaced with local fonts
 import 'package:flutter/material.dart';
 // Google Fonts replaced with local fonts
@@ -17,10 +18,23 @@ class DriverView extends StatelessWidget {
 
   const DriverView({super.key, this.driverId});
 
+  Future<DriverUserModel?> _getDriver() async {
+    if (driverId == null) return null;
+    try {
+      final response = await DriverApi.getProfile(driverId!);
+      if (response['success'] == true && response['driver'] != null) {
+        return DriverUserModel.fromJson(response['driver']);
+      }
+    } catch (e) {
+      print('❌ Error loading driver: $e');
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<DriverUserModel?>(
-        future: FireStoreUtils.getDriver(driverId.toString()),
+        future: _getDriver(),
         builder: (context, snapshot) {
           switch (snapshot.connectionState) {
             case ConnectionState.waiting:

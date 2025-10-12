@@ -11,6 +11,9 @@ import 'package:driver/model/order/driverId_accept_reject.dart';
 import 'package:driver/model/order_model.dart';
 import 'package:driver/themes/app_colors.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/order_api.dart';
+import 'package:driver/utils/driver_api.dart';
+import 'package:driver/utils/customer_api.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_osm_plugin/flutter_osm_plugin.dart';
@@ -49,43 +52,65 @@ class OrderMapController extends GetxController {
   acceptOrder() async {
     if (double.parse(driverModel.value.walletAmount.toString()) >= double.parse(Constant.minimumDepositToRideAccept)) {
       ShowToastDialog.showLoader("Please wait".tr);
-      List<dynamic> newAcceptedDriverId = [];
-      if (orderModel.value.acceptedDriverId != null) {
-        newAcceptedDriverId = orderModel.value.acceptedDriverId!;
-      } else {
-        newAcceptedDriverId = [];
-      }
-      newAcceptedDriverId.add(FireStoreUtils.getCurrentUid());
-      orderModel.value.acceptedDriverId = newAcceptedDriverId;
-      if (orderModel.value.isAcSelected == true) {
-        orderModel.value.acNonAcCharges = driverModel.value.vehicleInformation!.acPerKmRate;
-      } else {
-        orderModel.value.acNonAcCharges = driverModel.value.vehicleInformation!.nonAcPerKmRate;
-      }
-      // orderModel.value.offerRate = newAmount.value;
-      await FireStoreUtils.setOrder(orderModel.value);
-
-      await FireStoreUtils.getCustomer(orderModel.value.userId.toString()).then((value) async {
-        if (value != null) {
-          await SendNotification.sendOneNotification(
-              token: value.fcmToken.toString(),
-              title: 'New Driver Bid'.tr,
-              body: 'Driver has offered ${Constant.amountShow(amount: finalAmount.value.toString())} for your journey.🚗'.tr,
-              payload: {});
+      
+      try {
+        // Get driver ID from MySQL
+        final uid = FireStoreUtils.getCurrentUid();
+        final driverResponse = await DriverApi.checkStatus(uid);
+        
+        if (driverResponse['success'] == true) {
+          final driverId = driverResponse['driver']['id'];
+          
+          // Accept order via API
+          final response = await OrderApi.acceptOrder(
+            orderId: int.parse(orderModel.value.id ?? '0'),
+            driverId: driverId,
+          );
+          
+          if (response['success'] == true) {
+            // Get customer info for notification
+            try {
+              final customerResponse = await CustomerApi.getCustomerByUserId(orderModel.value.userId.toString());
+              if (customerResponse['success'] == true && customerResponse['customer'] != null) {
+                final customer = customerResponse['customer'];
+                await SendNotification.sendOneNotification(
+                  token: customer['fcm_token']?.toString() ?? '',
+                  title: 'New Driver Bid'.tr,
+                  body: 'Driver has offered ${Constant.amountShow(amount: finalAmount.value.toString())} for your journey.🚗'.tr,
+                  payload: {},
+                );
+              }
+            } catch (e) {
+              if (kDebugMode) {
+                print('❌ Error getting customer for notification: $e');
+              }
+            }
+            
+            // Update subscription orders count
+            if (driverModel.value.subscriptionTotalOrders != "-1") {
+              driverModel.value.subscriptionTotalOrders = 
+                (int.parse(driverModel.value.subscriptionTotalOrders.toString()) - 1).toString();
+              await DriverApi.updateProfile(
+                uid: FireStoreUtils.getCurrentUid(),
+                subscriptionTotalOrders: driverModel.value.subscriptionTotalOrders,
+              );
+            }
+            
+            ShowToastDialog.closeLoader();
+            ShowToastDialog.showToast("Ride Accepted".tr);
+            Get.back(result: true);
+          } else {
+            ShowToastDialog.closeLoader();
+            ShowToastDialog.showToast(response['message'] ?? 'Failed to accept order');
+          }
         }
-      });
-
-      DriverIdAcceptReject driverIdAcceptReject =
-          DriverIdAcceptReject(driverId: FireStoreUtils.getCurrentUid(), acceptedRejectTime: cloudFirestore.Timestamp.now(), offerAmount: finalAmount.value.toString());
-      FireStoreUtils.acceptRide(orderModel.value, driverIdAcceptReject).then((value) async {
+      } catch (e) {
         ShowToastDialog.closeLoader();
-        ShowToastDialog.showToast("Ride Accepted".tr);
-        if (driverModel.value.subscriptionTotalOrders != "-1") {
-          driverModel.value.subscriptionTotalOrders = (int.parse(driverModel.value.subscriptionTotalOrders.toString()) - 1).toString();
-          await FireStoreUtils.updateDriverUser(driverModel.value);
+        ShowToastDialog.showToast('Error accepting order: $e');
+        if (kDebugMode) {
+          print('❌ Accept order error: $e');
         }
-        Get.back(result: true);
-      });
+      }
     } else {
       ShowToastDialog.showToast(
           "You have to minimum ${Constant.amountShow(amount: Constant.minimumDepositToRideAccept.toString())} wallet amount to Accept Order and place a bid".tr);
@@ -116,11 +141,18 @@ class OrderMapController extends GetxController {
   }
 
   getData(String id) async {
-    await FireStoreUtils.getOrder(id).then((value) {
-      if (value != null) {
-        orderModel.value = value;
+    try {
+      // Get order from API
+      final response = await OrderApi.getOrderById(int.parse(id));
+      
+      if (response['success'] == true && response['order'] != null) {
+        orderModel.value = OrderModel.fromJson(response['order']);
       }
-    });
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error loading order: $e');
+      }
+    }
   }
 
   RxDouble amount = 0.0.obs;

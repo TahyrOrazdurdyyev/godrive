@@ -1,6 +1,7 @@
 import 'package:driver/constant/show_toast_dialog.dart';
 import 'package:driver/model/driver_user_model.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/driver_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -23,18 +24,39 @@ class ProfileController extends GetxController {
   }
 
   getData() async {
-    await FireStoreUtils.getDriverProfile(FireStoreUtils.getCurrentUid()).then((value) {
-      if (value != null) {
-        driverModel.value = value;
+    try {
+      // Get profile from Laravel API
+      final uid = FireStoreUtils.getCurrentUid();
+      final response = await DriverApi.getProfile(uid);
+      
+      if (response['success'] == true) {
+        final driver = response['driver'];
+        
+        // Convert API response to DriverUserModel
+        driverModel.value = DriverUserModel(
+          id: uid,
+          fullName: driver['full_name'],
+          email: driver['email'],
+          phoneNumber: driver['phone']?.replaceAll(driver['country_code'] ?? '', ''),
+          countryCode: driver['country_code'],
+          profilePic: driver['profile_pic'],
+        );
 
         phoneNumberController.value.text = driverModel.value.phoneNumber.toString();
         countryCode.value = driverModel.value.countryCode.toString();
         emailController.value.text = driverModel.value.email.toString();
         fullNameController.value.text = driverModel.value.fullName.toString();
-        profileImage.value = driverModel.value.profilePic?? '';
+        profileImage.value = driverModel.value.profilePic ?? '';
+        isLoading.value = false;
+      } else {
+        // API failed
+        print('❌ Failed to load driver profile from API');
         isLoading.value = false;
       }
-    });
+    } catch (e) {
+      print('❌ Error loading profile: $e');
+      isLoading.value = false;
+    }
   }
 
   final ImagePicker _imagePicker = ImagePicker();

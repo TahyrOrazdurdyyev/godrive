@@ -2,6 +2,8 @@ import 'package:driver/constant/constant.dart';
 import 'package:driver/model/language_model.dart';
 import 'package:driver/utils/Preferences.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/service_api.dart';
+import 'package:driver/utils/language_api.dart';
 import 'package:get/get.dart';
 
 class SettingController extends GetxController {
@@ -21,9 +23,13 @@ class SettingController extends GetxController {
   Rx<String> selectedMode = "".obs;
 
   getLanguage() async {
-    await FireStoreUtils.getLanguage().then((value) {
-      if (value != null) {
-        languageList.value = value;
+    try {
+      // Get languages from API
+      final response = await LanguageApi.getAllLanguages();
+      if (response['success'] == true && response['languages'] != null) {
+        languageList.value = (response['languages'] as List)
+            .map((json) => LanguageModel.fromJson(json))
+            .toList();
         if (Preferences.getString(Preferences.languageCodeKey).toString().isNotEmpty) {
           LanguageModel pref = Constant.getLanguage();
 
@@ -34,7 +40,9 @@ class SettingController extends GetxController {
           }
         }
       }
-    });
+    } catch (e) {
+      print('❌ Error loading languages: $e');
+    }
     if (Preferences.getString(Preferences.themKey).toString().isNotEmpty) {
       selectedMode.value = Preferences.getString(Preferences.themKey).toString();
     }

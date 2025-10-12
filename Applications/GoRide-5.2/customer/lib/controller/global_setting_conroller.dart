@@ -8,6 +8,8 @@ import 'package:customer/model/user_model.dart';
 import 'package:customer/services/localization_service.dart';
 import 'package:customer/utils/Preferences.dart';
 import 'package:customer/utils/fire_store_utils.dart';
+import 'package:customer/utils/language_api.dart';
+import 'package:customer/utils/user_api.dart';
 import 'package:customer/utils/notification_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
@@ -26,17 +28,22 @@ class GlobalSettingController extends GetxController {
       LanguageModel languageModel = Constant.getLanguage();
       LocalizationService().changeLocale(languageModel.code.toString());
     } else {
-      await FireStoreUtils.getLanguage().then((value) {
-        if (value != null) {
-          List<LanguageModel> languageList = value;
+      try {
+        final response = await LanguageApi.getAllLanguages();
+        if (response['success'] == true && response['languages'] != null) {
+          List<LanguageModel> languageList = (response['languages'] as List)
+              .map((json) => LanguageModel.fromJson(json))
+              .toList();
 
-          if(languageList.where((element) => element.isDefault == true).isNotEmpty){
+          if (languageList.where((element) => element.isDefault == true).isNotEmpty) {
             LanguageModel languageModel = languageList.firstWhere((element) => element.isDefault == true);
             Preferences.setString(Preferences.languageCodeKey, jsonEncode(languageModel));
             LocalizationService().changeLocale(languageModel.code.toString());
           }
         }
-      });
+      } catch (e) {
+        log('❌ Error loading languages: $e');
+      }
     }
 
     await FireStoreUtils().getCurrency().then((value) {
@@ -96,13 +103,22 @@ class GlobalSettingController extends GetxController {
       String token = await NotificationService.getToken();
       log(":::::::TOKEN:::::: $token");
       if (FirebaseAuth.instance.currentUser != null) {
-        await FireStoreUtils.getUserProfile(FireStoreUtils.getCurrentUid()).then((value) {
-          if (value != null) {
-            UserModel driverUserModel = value;
-            driverUserModel.fcmToken = token;
-            FireStoreUtils.updateUser(driverUserModel);
+        try {
+          final uid = FireStoreUtils.getCurrentUid();
+          final response = await UserApi.getProfile(uid);
+          
+          if (response['success'] == true && response['user'] != null) {
+            final uid = response['user']['uid'];
+            
+            // Update FCM token via API
+            await UserApi.updateFcmToken(
+              uid: uid,
+              fcmToken: token,
+            );
           }
-        });
+        } catch (e) {
+          log('❌ Error updating FCM token: $e');
+        }
       }
     });
   }

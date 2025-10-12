@@ -1,5 +1,6 @@
 import 'package:driver/model/bank_details_model.dart';
 import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/driver_api.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -21,16 +22,22 @@ class BankDetailsController extends GetxController {
   Rx<BankDetailsModel> bankDetailsModel = BankDetailsModel().obs;
 
   getBankDetails() async {
-    await FireStoreUtils.getBankDetails().then((value) {
-      if (value != null) {
-        bankDetailsModel.value = value;
-        bankNameController.value.text = bankDetailsModel.value.bankName.toString();
-        branchNameController.value.text = bankDetailsModel.value.bankName.toString();
-        holderNameController.value.text = bankDetailsModel.value.holderName.toString();
-        accountNumberController.value.text = bankDetailsModel.value.accountNumber.toString();
-        otherInformationController.value.text = bankDetailsModel.value.otherInformation.toString();
-      }
-    });
+    try {
+      // TODO: Implement bank details API endpoints when bank transactions are ready
+      // For now, keep Firestore for bank details
+      await FireStoreUtils.getBankDetails().then((value) {
+        if (value != null) {
+          bankDetailsModel.value = value;
+          bankNameController.value.text = bankDetailsModel.value.bankName.toString();
+          branchNameController.value.text = bankDetailsModel.value.bankName.toString();
+          holderNameController.value.text = bankDetailsModel.value.holderName.toString();
+          accountNumberController.value.text = bankDetailsModel.value.accountNumber.toString();
+          otherInformationController.value.text = bankDetailsModel.value.otherInformation.toString();
+        }
+      });
+    } catch (e) {
+      print('❌ Error loading bank details: $e');
+    }
     isLoading.value = false;
     update();
   }

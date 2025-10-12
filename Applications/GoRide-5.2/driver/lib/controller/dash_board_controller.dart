@@ -13,14 +13,53 @@ import 'package:driver/ui/subscription_plan_screen/subscription_history.dart';
 import 'package:driver/ui/subscription_plan_screen/subscription_list_screen.dart';
 import 'package:driver/ui/vehicle_information/vehicle_information_screen.dart';
 import 'package:driver/ui/wallet/wallet_screen.dart';
+import 'package:driver/model/driver_user_model.dart';
 import 'package:driver/utils/utils.dart';
+import 'package:driver/utils/fire_store_utils.dart';
+import 'package:driver/utils/driver_api.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'dart:async';
 
 class DashBoardController extends GetxController {
   RxList<DrawerItem> drawerItems = <DrawerItem>[].obs;
+  Rx<DriverUserModel> driverModel = DriverUserModel().obs;
+  Timer? _refreshTimer;
+  
+  @override
+  void onInit() {
+    super.onInit();
+    setDrawerList();
+    getLocation();
+    loadDriverProfile();
+    _startPeriodicRefresh();
+  }
+  
+  @override
+  void onClose() {
+    _refreshTimer?.cancel();
+    super.onClose();
+  }
+  
+  void _startPeriodicRefresh() {
+    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      loadDriverProfile();
+    });
+  }
+  
+  Future<void> loadDriverProfile() async {
+    try {
+      final uid = FireStoreUtils.getCurrentUid();
+      final response = await DriverApi.getProfile(uid);
+      if (response['success'] == true && response['driver'] != null) {
+        driverModel.value = DriverUserModel.fromJson(response['driver']);
+      }
+    } catch (e) {
+      print('❌ Error loading driver profile: $e');
+    }
+  }
 
   getDrawerItemWidget(int pos) {
     if (Constant.isSubscriptionModelApplied == true) {
@@ -118,14 +157,6 @@ class DashBoardController extends GetxController {
     }
 
     Get.back();
-  }
-
-  @override
-  void onInit() {
-    // TODO: implement onInit
-    setDrawerList();
-    getLocation();
-    super.onInit();
   }
 
   setDrawerList() {

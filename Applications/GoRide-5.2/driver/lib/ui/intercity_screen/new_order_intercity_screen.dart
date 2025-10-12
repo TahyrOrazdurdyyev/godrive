@@ -4,6 +4,7 @@ import 'package:driver/constant/constant.dart';
 import 'package:driver/constant/send_notification.dart';
 import 'package:driver/constant/show_toast_dialog.dart';
 import 'package:driver/controller/intercity_controller.dart';
+import 'package:driver/controller/home_intercity_controller.dart';
 import 'package:driver/model/intercity_order_model.dart';
 import 'package:driver/model/order/driverId_accept_reject.dart';
 import 'package:driver/model/place_picker_model.dart';
@@ -169,6 +170,23 @@ class NewOrderInterCityScreen extends StatelessWidget {
                                             }
                                             return InkWell(
                                               onTap: () {
+                                                // 🔥 BLOCK ORDER ACCESS IF DRIVER NOT APPROVED
+                                                try {
+                                                  final homeController = Get.find<HomeIntercityController>();
+                                                  if (!homeController.isDriverActive.value) {
+                                                    Get.snackbar(
+                                                      "Account Pending".tr,
+                                                      "Your account is pending admin approval. Please wait.".tr,
+                                                      snackPosition: SnackPosition.BOTTOM,
+                                                      backgroundColor: Colors.orange,
+                                                      colorText: Colors.white,
+                                                    );
+                                                    return;
+                                                  }
+                                                } catch (e) {
+                                                  // HomeIntercityController not initialized yet, allow action
+                                                }
+                                                
                                                 if (orderModel.acceptedDriverId != null && orderModel.acceptedDriverId!.contains(FireStoreUtils.getCurrentUid())) {
                                                   ShowToastDialog.showToast("Ride already accepted".tr);
                                                 } else {
