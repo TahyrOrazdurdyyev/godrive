@@ -10,7 +10,6 @@ import 'package:customer/model/payment_model.dart';
 import 'package:customer/model/stripe_failed_model.dart';
 import 'package:customer/model/user_model.dart';
 import 'package:customer/model/wallet_transaction_model.dart';
-import 'package:customer/services/laravel_service.dart';
 import 'package:customer/utils/Preferences.dart';
 import 'package:customer/payment/MercadoPagoScreen.dart';
 import 'package:customer/payment/PayFastScreen.dart';
@@ -92,9 +91,10 @@ class WalletController extends GetxController {
 
   getTraction() async {
     try {
-      // Load wallet transactions from Laravel API
-      List<WalletTransactionModel> transactions = await LaravelService.getWalletTransactions();
-      transactionList.value = transactions;
+      // Load wallet transactions from FireStore
+      await FireStoreUtils.getWalletTransaction(FireStoreUtils.getCurrentUid()).then((value) {
+        transactionList.value = value;
+      });
     } catch (e) {
       debugPrint("Error loading wallet transactions: $e");
       transactionList.value = [];

@@ -6,7 +6,7 @@ import 'package:customer/constant/constant.dart';
 import 'package:customer/constant/show_toast_dialog.dart';
 import 'package:customer/controller/login_controller.dart';
 import 'package:customer/model/user_model.dart';
-import 'package:customer/services/laravel_service.dart';
+import 'package:customer/utils/user_api.dart';
 import 'package:customer/themes/app_colors.dart';
 import 'package:customer/themes/button_them.dart';
 import 'package:customer/themes/responsive.dart';
@@ -185,35 +185,52 @@ class LoginScreen extends StatelessWidget {
                                         "userModel": userModel,
                                       });
                                     } else {
-                                      // Try to login existing user with Laravel API
-                                      UserModel? userModel = await LaravelService.loginUser(
-                                        firebaseUid: userCredential.user!.uid,
-                                        email: userCredential.additionalUserInfo!.profile!['email'] ?? '',
-                                        fullName: "${appleCredential.givenName ?? ''} ${appleCredential.familyName ?? ''}".trim(),
-                                        loginType: 'apple',
-                                        profilePic: userCredential.user!.photoURL,
-                                      );
-                                      
-                                      ShowToastDialog.closeLoader();
-                                      
-                                      if (userModel != null) {
-                                        if (userModel.isActive == true) {
-                                          Get.offAll(const DashBoardScreen());
+                                      // Get or register user via API
+                                      try {
+                                        final response = await UserApi.getProfile(userCredential.user!.uid);
+                                        UserModel? userModel;
+                                        
+                                        if (response['success'] == true && response['user'] != null) {
+                                          userModel = UserModel.fromJson(response['user']);
                                         } else {
+                                          // Register new user
+                                          final registerResponse = await UserApi.register(
+                                            uid: userCredential.user!.uid,
+                                            email: userCredential.additionalUserInfo!.profile!['email'] ?? '',
+                                            fullName: "${appleCredential.givenName ?? ''} ${appleCredential.familyName ?? ''}".trim(),
+                                            phoneNumber: '',
+                                            countryCode: '+993',
+                                            loginType: 'apple',
+                                            profilePic: userCredential.user!.photoURL,
+                                          );
+                                          
+                                          if (registerResponse['success'] == true && registerResponse['user'] != null) {
+                                            userModel = UserModel.fromJson(registerResponse['user']);
+                                          }
+                                        }
+                                        
+                                        ShowToastDialog.closeLoader();
+                                        
+                                        if (userModel != null && userModel.isActive == true) {
+                                          Get.offAll(const DashBoardScreen());
+                                        } else if (userModel != null && userModel.isActive == false) {
                                           await FirebaseAuth.instance.signOut();
                                           ShowToastDialog.showToast("This user is disabled. Please contact administrator".tr);
-                                        }
-                                      } else {
-                                        UserModel userModel = UserModel();
+                                        } else {
+                                          UserModel userModel = UserModel();
                                         userModel.id = userCredential.user!.uid;
                                         userModel.profilePic = userCredential.user!.photoURL;
                                         userModel.loginType = Constant.appleLoginType;
                                         userModel.email = userCredential.additionalUserInfo!.profile!['email'];
                                         userModel.fullName = "${appleCredential.givenName ?? ''} ${appleCredential.familyName ?? ''}";
 
-                                        Get.to(const InformationScreen(), arguments: {
-                                          "userModel": userModel,
-                                        });
+                                          Get.to(const InformationScreen(), arguments: {
+                                            "userModel": userModel,
+                                          });
+                                        }
+                                      } catch (e) {
+                                        ShowToastDialog.closeLoader();
+                                        ShowToastDialog.showToast("Login failed: ${e.toString()}".tr);
                                       }
                                     }
                                   }

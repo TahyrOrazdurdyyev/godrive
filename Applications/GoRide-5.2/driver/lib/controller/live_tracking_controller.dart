@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
-import 'dart:math';
+import 'dart:math' hide log;
 import 'package:driver/constant/collection_name.dart';
 import 'package:driver/constant/constant.dart';
 import 'package:driver/constant/show_toast_dialog.dart';
@@ -40,6 +40,7 @@ class LiveTrackingController extends GetxController {
   @override
   void onClose() {
     ShowToastDialog.closeLoader();
+    _cleanup();
     super.onClose();
   }
 
@@ -73,9 +74,8 @@ class LiveTrackingController extends GetxController {
         
         // Subscribe to WebSocket for intercity order updates
         _wsService.connect();
-        _wsService.subscribeToChannel('intercity-orders.${argumentOrderModel.id}');
-        _wsService.onEvent('InterCityOrderUpdated', (data) {
-          if (data != null) {
+        _wsService.subscribeToChannel('intercity-orders.${argumentOrderModel.id}', (event, data) {
+          if (event == 'InterCityOrderUpdated' && data != null) {
             try {
               intercityOrderModel.value = InterCityOrderModel.fromJson(data);
               _updatePolylines(); // Update map when order changes
@@ -91,10 +91,12 @@ class LiveTrackingController extends GetxController {
         // Periodic refresh for driver location
         _pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) async {
           try {
-            final response = await DriverApi.getProfile(argumentOrderModel.driverId);
-            if (response['success'] == true && response['driver'] != null) {
-              driverUserModel.value = DriverUserModel.fromJson(response['driver']);
-              _updatePolylines();
+            if (argumentOrderModel.driverId != null) {
+              final response = await DriverApi.getProfile(argumentOrderModel.driverId!);
+              if (response['success'] == true && response['driver'] != null) {
+                driverUserModel.value = DriverUserModel.fromJson(response['driver']);
+                _updatePolylines();
+              }
             }
           } catch (e) {
             print('❌ Error refreshing driver data: $e');
@@ -533,11 +535,5 @@ class LiveTrackingController extends GetxController {
     _orderSubscription?.cancel();
     _pollingTimer?.cancel();
     _wsService.disconnect();
-  }
-
-  @override
-  void onClose() {
-    _cleanup();
-    super.onClose();
   }
 }

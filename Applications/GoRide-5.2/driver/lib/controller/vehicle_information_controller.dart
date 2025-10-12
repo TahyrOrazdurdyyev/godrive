@@ -12,6 +12,7 @@ import 'package:driver/utils/driver_api.dart';
 import 'package:driver/utils/service_api.dart';
 import 'package:driver/utils/zone_api.dart';
 import 'package:driver/utils/driver_rule_api.dart';
+import 'package:driver/utils/vehicle_type_api.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -61,10 +62,11 @@ class VehicleInformationController extends GetxController {
     try {
       // Get services from Laravel API
       final servicesResponse = await ServiceApi.getAllServices();
-      if (servicesResponse['success'] == true) {
-        serviceList.value = (servicesResponse['services'] as List)
+      if (servicesResponse['success'] == true && servicesResponse['data'] != null) {
+        serviceList.value = (servicesResponse['data'] as List)
             .map((s) => ServiceModel.fromJson(s))
             .toList();
+        print('✅ Loaded ${serviceList.length} services');
       }
     } catch (e) {
       print('❌ Error loading services: $e');
@@ -73,10 +75,11 @@ class VehicleInformationController extends GetxController {
     try {
       // Get zones from Laravel API
       final zonesResponse = await ZoneApi.getAllZones();
-      if (zonesResponse['success'] == true) {
-        zoneList.value = (zonesResponse['zones'] as List)
+      if (zonesResponse['success'] == true && zonesResponse['data'] != null) {
+        zoneList.value = (zonesResponse['data'] as List)
             .map((z) => ZoneModel.fromJson(z))
             .toList();
+        print('✅ Loaded ${zoneList.length} zones');
       }
     } catch (e) {
       print('❌ Error loading zones: $e');
@@ -88,38 +91,37 @@ class VehicleInformationController extends GetxController {
       final response = await DriverApi.getProfile(uid);
       if (response['success'] == true && response['driver'] != null) {
         driverModel.value = DriverUserModel.fromJson(response['driver']);
-          if (driverModel.value.vehicleInformation != null) {
-            vehicleNumberController.value.text = driverModel.value.vehicleInformation!.vehicleNumber.toString();
-            selectedDate.value = driverModel.value.vehicleInformation!.registrationDate!.toDate();
-            registrationDateController.value.text = DateFormat("dd-MM-yyyy").format(selectedDate.value!);
-            selectedColor.value = driverModel.value.vehicleInformation!.vehicleColor.toString();
-            seatsController.value.text = driverModel.value.vehicleInformation!.seats ?? "2";
-            if(driverModel.value.vehicleInformation!.acPerKmRate != null){
-              acPerKmRate.value.text = driverModel.value.vehicleInformation!.acPerKmRate ?? '';
-            }else{
-              nonAcPerKmRate.value.text = driverModel.value.vehicleInformation!.nonAcPerKmRate ?? '';
-              acNonAcWithoutPerKmRate.value.text = driverModel.value.vehicleInformation!.perKmRate ?? '';
-            }
-          }
-
-          if (driverModel.value.zoneIds != null) {
-            for (var element in driverModel.value.zoneIds!) {
-              List<ZoneModel> list = zoneList.where((p0) => p0.id == element).toList();
-              if (list.isNotEmpty) {
-                selectedZone.add(element);
-                zoneString.value = "$zoneString${zoneString.isEmpty ? "" : ","} ${Constant.localizationName(list.first.name)}";
-              }
-            }
-            zoneNameController.value.text = zoneString.value;
-          }
-          for (var element in serviceList) {
-            if (element.id == driverModel.value.serviceId) {
-              print("====>");
-              selectedServiceType.value = element;
-            }
+        if (driverModel.value.vehicleInformation != null) {
+          vehicleNumberController.value.text = driverModel.value.vehicleInformation!.vehicleNumber.toString();
+          selectedDate.value = driverModel.value.vehicleInformation!.registrationDate!.toDate();
+          registrationDateController.value.text = DateFormat("dd-MM-yyyy").format(selectedDate.value!);
+          selectedColor.value = driverModel.value.vehicleInformation!.vehicleColor.toString();
+          seatsController.value.text = driverModel.value.vehicleInformation!.seats ?? "2";
+          if(driverModel.value.vehicleInformation!.acPerKmRate != null){
+            acPerKmRate.value.text = driverModel.value.vehicleInformation!.acPerKmRate ?? '';
+          }else{
+            nonAcPerKmRate.value.text = driverModel.value.vehicleInformation!.nonAcPerKmRate ?? '';
+            acNonAcWithoutPerKmRate.value.text = driverModel.value.vehicleInformation!.perKmRate ?? '';
           }
         }
-      });
+
+        if (driverModel.value.zoneIds != null) {
+          for (var element in driverModel.value.zoneIds!) {
+            List<ZoneModel> list = zoneList.where((p0) => p0.id == element).toList();
+            if (list.isNotEmpty) {
+              selectedZone.add(element);
+              zoneString.value = "$zoneString${zoneString.isEmpty ? "" : ","} ${Constant.localizationName(list.first.name)}";
+            }
+          }
+          zoneNameController.value.text = zoneString.value;
+        }
+        for (var element in serviceList) {
+          if (element.id == driverModel.value.serviceId) {
+            print("====>");
+            selectedServiceType.value = element;
+          }
+        }
+      }
     } catch (e) {
       print('❌ Error loading driver profile: $e');
     }
@@ -127,10 +129,11 @@ class VehicleInformationController extends GetxController {
     try {
       // Get vehicle types from Laravel API
       final vehicleTypesResponse = await VehicleTypeApi.getAllVehicleTypes();
-      if (vehicleTypesResponse['success'] == true) {
-        vehicleList = (vehicleTypesResponse['vehicle_types'] as List)
+      if (vehicleTypesResponse['success'] == true && vehicleTypesResponse['data'] != null) {
+        vehicleList = (vehicleTypesResponse['data'] as List)
             .map((v) => VehicleTypeModel.fromJson(v))
             .toList();
+        print('✅ Loaded ${vehicleList.length} vehicle types');
         if (driverModel.value.vehicleInformation != null) {
           for (var element in vehicleList) {
             if (element.id == driverModel.value.vehicleInformation!.vehicleTypeId) {
@@ -146,10 +149,11 @@ class VehicleInformationController extends GetxController {
     try {
       // Get driver rules from Laravel API
       final driverRulesResponse = await DriverRuleApi.getAllDriverRules();
-      if (driverRulesResponse['success'] == true) {
-        driverRulesList.value = (driverRulesResponse['driver_rules'] as List)
+      if (driverRulesResponse['success'] == true && driverRulesResponse['data'] != null) {
+        driverRulesList.value = (driverRulesResponse['data'] as List)
             .map((r) => DriverRulesModel.fromJson(r))
             .toList();
+        print('✅ Loaded ${driverRulesList.length} driver rules');
         if (driverModel.value.vehicleInformation != null) {
           if (driverModel.value.vehicleInformation!.driverRules != null) {
             for (var element in driverModel.value.vehicleInformation!.driverRules!) {
@@ -183,8 +187,8 @@ class VehicleInformationController extends GetxController {
         perKmRate: acNonAcWithoutPerKmRate.value.text,
         driverRules: selectedDriverRulesList);
 
+    // Update via API
     try {
-      // Try to update via API first
       final uid = FireStoreUtils.getCurrentUid();
       final response = await DriverApi.updateProfile(
         uid: uid,
@@ -197,27 +201,16 @@ class VehicleInformationController extends GetxController {
       );
       
       if (response['success'] == true) {
-        print('✅ Vehicle info updated via API');
+        ShowToastDialog.closeLoader();
+        ShowToastDialog.showToast("Information update successfully".tr);
       } else {
-        print('⚠️ API failed, using Firestore');
+        ShowToastDialog.closeLoader();
+        ShowToastDialog.showToast(response['message'] ?? "Failed to update information".tr);
       }
-    } catch (e) {
-      print('❌ Error updating via API: $e');
-    }
-    
-    // Update vehicle info via API
-    try {
-      await DriverApi.updateProfile(
-        driverId: driverModel.value.id!,
-        data: {
-          'vehicle_information': driverModel.value.vehicleInformation?.toJson(),
-        },
-      );
-      ShowToastDialog.closeLoader();
-      ShowToastDialog.showToast("Information update successfully".tr);
     } catch (e) {
       ShowToastDialog.closeLoader();
       ShowToastDialog.showToast("Failed to update information".tr);
+      print('❌ Error updating via API: $e');
     }
   }
 }

@@ -108,11 +108,11 @@ class GlobalSettingController extends GetxController {
           final response = await UserApi.getProfile(uid);
           
           if (response['success'] == true && response['user'] != null) {
-            final userId = response['user']['id'];
+            final uid = response['user']['uid'];
             
             // Update FCM token via API
             await UserApi.updateFcmToken(
-              userId: userId,
+              uid: uid,
               fcmToken: token,
             );
           }

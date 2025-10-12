@@ -186,11 +186,9 @@ class ProfileScreen extends StatelessWidget {
 
                                               try {
                                                 await DriverApi.updateProfile(
-                                                  driverId: controller.driverModel.value.id!,
-                                                  data: {
-                                                    'full_name': controller.fullNameController.value.text,
-                                                    'profile_pic': controller.profileImage.value,
-                                                  },
+                                                  uid: FireStoreUtils.getCurrentUid(),
+                                                  fullName: controller.fullNameController.value.text,
+                                                  profilePic: controller.profileImage.value,
                                                 );
                                                 ShowToastDialog.closeLoader();
                                                 controller.getData();

@@ -353,19 +353,19 @@ class _ChatScreensState extends State<ChatScreens> {
         customerProfileImage: widget.customerProfileImage,
         lastMessage: _messageController.text);
 
-    try {
-      // Prepare message content
-      String messageContent = message;
-      if (url != null) {
-        if (url.mime.contains('image')) {
-          messageContent = "sent an image";
-        } else if (url.mime.contains('video')) {
-          messageContent = "sent an Video";
-        } else if (url.mime.contains('audio')) {
-          messageContent = "Sent a voice message";
-        }
+    // Prepare message content
+    String messageContent = message;
+    if (url != null) {
+      if (url.mime.contains('image')) {
+        messageContent = "sent an image";
+      } else if (url.mime.contains('video')) {
+        messageContent = "sent an Video";
+      } else if (url.mime.contains('audio')) {
+        messageContent = "Sent a voice message";
       }
+    }
 
+    try {
       // Send message via API
       await ConversationApi.sendMessage(
         orderId: widget.orderId!,
@@ -390,7 +390,7 @@ class _ChatScreensState extends State<ChatScreens> {
 
     SendNotification.sendOneNotification(
         title: "${widget.driverName} ${messageType == "image" ? messageType == "video" ? "sent video to you" : "sent image to you" : "sent message to you"}",
-        body: conversationModel.message.toString(),
+        body: messageContent,
         token: widget.token.toString(),
         payload: playLoad);
   }

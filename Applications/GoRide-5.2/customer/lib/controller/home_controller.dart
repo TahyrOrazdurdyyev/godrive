@@ -15,9 +15,9 @@ import 'package:customer/model/user_model.dart';
 import 'package:customer/model/zone_model.dart';
 import 'package:customer/themes/app_colors.dart';
 import 'package:customer/utils/Preferences.dart';
-import 'package:customer/services/laravel_service.dart';
 import 'package:customer/utils/notification_service.dart';
 import 'package:customer/utils/utils.dart';
+import 'package:customer/utils/service_api.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
@@ -159,27 +159,40 @@ class HomeController extends GetxController {
   getServiceType() async {
     try {
       print('🔥 HomeController: Starting to load services...');
-      // Load services from Laravel API
-      List<ServiceModel> services = await LaravelService.getServices();
-      print('🔥 HomeController: Received ${services.length} services from API');
-      serviceList.value = services;
       
-      if (serviceList.isNotEmpty) {
-        selectedType.value = serviceList.first;
-        print('🔥 HomeController: Selected first service: ${selectedType.value.id}');
-      } else {
-        print('❌ HomeController: Service list is empty!');
+      // Load services from Laravel API
+      final servicesResponse = await ServiceApi.getServices();
+      if (servicesResponse['success'] == true && servicesResponse['data'] != null) {
+        serviceList.value = (servicesResponse['data'] as List)
+            .map((json) => ServiceModel.fromJson(json))
+            .toList();
+        
+        if (serviceList.isNotEmpty) {
+          selectedType.value = serviceList.first;
+          print('🔥 HomeController: Selected first service: ${selectedType.value.id}');
+          print('🔥 HomeController: First service image: ${selectedType.value.image}');
+        }
+        print('🔥 HomeController: Loaded ${serviceList.length} services from API');
+        for (var service in serviceList) {
+          print('🔥 Service ${service.id}: image=${service.image}');
+        }
       }
 
       // Load banners from Laravel API
       print('🔥 Loading banners from API...');
-      List<BannerModel> banners = await LaravelService.getBanners();
-      print('🔥 Loaded ${banners.length} banners');
-      bannerList.clear();
-      bannerList.addAll(banners);
-      print('🔥 Banner list: ${bannerList.length} banners added');
+      final bannersResponse = await ServiceApi.getBanners();
+      if (bannersResponse['success'] == true && bannersResponse['data'] != null) {
+        bannerList.clear();
+        bannerList.addAll((bannersResponse['data'] as List)
+            .map((json) => BannerModel.fromJson(json))
+            .toList());
+        print('🔥 Banner list: ${bannerList.length} banners loaded from API');
+        for (var banner in bannerList) {
+          print('🔥 Banner ${banner.id}: image=${banner.image}');
+        }
+      }
 
-      // Load user profile from preferences (no API call needed, getUserProfile doesn't use userId anyway)
+      // Load user profile from preferences
       await loadUserData();
 
       isLoading.value = false;
@@ -224,7 +237,7 @@ class HomeController extends GetxController {
     }
 
     bannerList.clear();
-    bannerList.addAll([
+    bannerList.addAll(<BannerModel>[
       BannerModel(
         id: "banner_1",
         image: "assets/images/banner_1.png",
@@ -347,7 +360,7 @@ class HomeController extends GetxController {
     nonAcCharge.value = selectedType.value.nonAcCharge.toString();
     basicFare.value = selectedType.value.basicFare.toString();
     basicFareCharge.value = selectedType.value.basicFareCharge.toString();
-    isAcNonAc.value = selectedType.value.isAcNonAc!;
+    isAcNonAc.value = selectedType.value.isAcNonAc ?? false;
     String formatTime(String? time) {
       if (time == null || !time.contains(":")) {
         return "00:00";

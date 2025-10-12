@@ -1,11 +1,11 @@
-import 'dart:math';
+import 'dart:math' hide log;
 import 'package:customer/constant/collection_name.dart';
 import 'package:customer/constant/constant.dart';
 import 'package:customer/constant/show_toast_dialog.dart';
 import 'package:customer/model/driver_user_model.dart';
 import 'package:customer/model/intercity_order_model.dart';
 import 'package:customer/model/order_model.dart';
-import 'package:customer/model/location_lat_lng.dart';
+import 'package:customer/model/order/location_lat_lng.dart';
 import 'package:customer/themes/app_colors.dart';
 import 'package:customer/utils/fire_store_utils.dart';
 import 'package:customer/utils/order_api.dart';

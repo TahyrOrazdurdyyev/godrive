@@ -124,14 +124,14 @@ class WalletController extends GetxController {
       
       if (driverResponse['success'] == true && driverResponse['driver'] != null) {
         final driverId = driverResponse['driver']['id'];
+        final int driverIdInt = driverId is int ? driverId : int.parse(driverId.toString());
         
         // Add money via API
         final response = await WalletApi.addMoney(
-          userId: driverId,
+          userId: driverIdInt,
           userType: 'driver',
           amount: double.parse(amountController.value.text),
-          paymentType: selectedPaymentMethod.value,
-          note: 'Wallet Topup',
+          paymentMethod: selectedPaymentMethod.value,
         );
         
         if (response['success'] == true) {

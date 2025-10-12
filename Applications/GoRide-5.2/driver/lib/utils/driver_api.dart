@@ -54,6 +54,7 @@ class DriverApi {
     String? profilePic,
     String? vehicleNumber,
     String? vehicleType,
+    String? subscriptionTotalOrders,
   }) async {
     try {
       final body = <String, dynamic>{'uid': uid};
@@ -65,6 +66,7 @@ class DriverApi {
       if (profilePic != null) body['profile_pic'] = profilePic;
       if (vehicleNumber != null) body['vehicle_number'] = vehicleNumber;
       if (vehicleType != null) body['vehicle_type'] = vehicleType;
+      if (subscriptionTotalOrders != null) body['subscription_total_orders'] = subscriptionTotalOrders;
 
       final response = await ApiService.put('/api/driver/profile', body: body);
 

@@ -143,17 +143,30 @@ class HomeScreen extends StatelessWidget {
                                                 BannerModel bannerModel = controller.bannerList[index];
                                                 return Padding(
                                                   padding: const EdgeInsets.symmetric(horizontal: 10),
-                                                  child: CachedNetworkImage(
-                                                    imageUrl: bannerModel.image.toString(),
-                                                    imageBuilder: (context, imageProvider) => Container(
-                                                      decoration: BoxDecoration(
-                                                        borderRadius: BorderRadius.circular(20),
-                                                        image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
-                                                      ),
+                                                  child: ClipRRect(
+                                                    borderRadius: BorderRadius.circular(20),
+                                                    child: Image.network(
+                                                      bannerModel.image.toString(),
+                                                      fit: BoxFit.cover,
+                                                      loadingBuilder: (context, child, loadingProgress) {
+                                                        if (loadingProgress == null) {
+                                                          print('✅ Banner image loaded: ${bannerModel.image}');
+                                                          return child;
+                                                        }
+                                                        print('🖼️ Loading banner: ${bannerModel.image}');
+                                                        return const Center(child: CircularProgressIndicator());
+                                                      },
+                                                      errorBuilder: (context, error, stackTrace) {
+                                                        print('❌ Banner error: ${bannerModel.image} - $error');
+                                                        return Container(
+                                                          decoration: BoxDecoration(
+                                                            borderRadius: BorderRadius.circular(20),
+                                                            color: Colors.grey,
+                                                          ),
+                                                          child: const Center(child: Icon(Icons.error, color: Colors.white)),
+                                                        );
+                                                      },
                                                     ),
-                                                    color: Colors.black.withOpacity(0.5),
-                                                    placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                                                    fit: BoxFit.cover,
                                                   ),
                                                 );
                                               })),
@@ -421,13 +434,23 @@ class HomeScreen extends StatelessWidget {
                                                             )),
                                                         child: Padding(
                                                           padding: const EdgeInsets.all(8.0),
-                                                          child: CachedNetworkImage(
-                                                            imageUrl: serviceModel.image.toString(),
+                                                          child: Image.network(
+                                                            serviceModel.image.toString(),
                                                             fit: BoxFit.contain,
                                                             height: Responsive.height(8, context),
                                                             width: Responsive.width(18, context),
-                                                            placeholder: (context, url) => Constant.loader(),
-                                                            errorWidget: (context, url, error) => Image.network(Constant.userPlaceHolder),
+                                                            loadingBuilder: (context, child, loadingProgress) {
+                                                              if (loadingProgress == null) {
+                                                                print('✅ Service image loaded: ${serviceModel.image}');
+                                                                return child;
+                                                              }
+                                                              print('🖼️ Loading service image: ${serviceModel.image}');
+                                                              return Constant.loader();
+                                                            },
+                                                            errorBuilder: (context, error, stackTrace) {
+                                                              print('❌ Service image error: ${serviceModel.image} - $error');
+                                                              return Image.network(Constant.userPlaceHolder);
+                                                            },
                                                           ),
                                                         ),
                                                       ),

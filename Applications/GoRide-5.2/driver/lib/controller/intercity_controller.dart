@@ -73,8 +73,8 @@ class IntercityController extends GetxController {
         if (driverModel.value.subscriptionTotalOrders != "-1") {
           driverModel.value.subscriptionTotalOrders = (int.parse(driverModel.value.subscriptionTotalOrders.toString()) - 1).toString();
           await DriverApi.updateProfile(
-            driverId: driverModel.value.id!,
-            data: {'subscription_total_orders': driverModel.value.subscriptionTotalOrders},
+            uid: FireStoreUtils.getCurrentUid(),
+            subscriptionTotalOrders: driverModel.value.subscriptionTotalOrders,
           );
         }
 
@@ -105,7 +105,7 @@ class IntercityController extends GetxController {
         
         // Search for intercity orders
         final searchResponse = await InterCityOrderApi.searchForDriver(
-          driverId: driverModel.value.id!,
+          driverId: int.parse(driverModel.value.id!),
           sourceCity: sourceCityController.value.text,
           destinationCity: destinationCityController.value.text.isNotEmpty 
               ? destinationCityController.value.text 

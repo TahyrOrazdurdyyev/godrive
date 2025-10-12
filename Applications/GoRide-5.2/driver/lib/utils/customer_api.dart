@@ -27,4 +27,9 @@ class CustomerApi {
       rethrow;
     }
   }
+
+  /// Alias method for compatibility
+  static Future<Map<String, dynamic>> getCustomerProfile(String userId) async {
+    return await getCustomerByUserId(userId);
+  }
 }

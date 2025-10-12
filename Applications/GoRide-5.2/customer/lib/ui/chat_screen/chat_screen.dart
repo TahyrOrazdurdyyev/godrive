@@ -390,22 +390,23 @@ class _ChatScreensState extends State<ChatScreens> {
         messageType: messageType ?? 'text',
         fileUrl: url?.url,
       );
+      
+      // Send notification
+      Map<String, dynamic> playLoad = <String, dynamic>{
+        "type": "chat",
+        "driverId": widget.driverId,
+        "customerId": widget.customerId,
+        "orderId": widget.orderId,
+      };
+
+      SendNotification.sendOneNotification(
+          title: "${widget.customerName} ${messageType == "image" ? "sent image to you" : messageType == "video" ? "sent video to you" : "sent message to you"}",
+          body: finalMessage,
+          token: widget.token.toString(),
+          payload: playLoad);
     } catch (e) {
       print('❌ Error sending message: $e');
     }
-
-    Map<String, dynamic> playLoad = <String, dynamic>{
-      "type": "chat",
-      "driverId": widget.driverId,
-      "customerId": widget.customerId,
-      "orderId": widget.orderId,
-    };
-
-    SendNotification.sendOneNotification(
-        title: "${widget.customerName} ${messageType == "image" ? messageType == "video" ? "sent video to you" : "sent image to you" : "sent message to you"}",
-        body: conversationModel.message.toString(),
-        token: widget.token.toString(),
-        payload: playLoad);
   }
 
   final ImagePicker _imagePicker = ImagePicker();

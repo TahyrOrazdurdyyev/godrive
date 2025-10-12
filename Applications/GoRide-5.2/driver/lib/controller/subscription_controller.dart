@@ -166,39 +166,37 @@ class SubscriptionController extends GetxController {
       }
       
       final driverId = driverResponse['driver']['id'];
+      final int driverIdInt = driverId is int ? driverId : int.parse(driverId.toString());
+      
+      // Convert Timestamp to ISO8601 string
+      final String? expiryDateStr = driverUserModel.value.subscriptionExpiryDate != null 
+        ? driverUserModel.value.subscriptionExpiryDate!.toDate().toIso8601String() 
+        : null;
 
       // Create subscription history via API
       await SubscriptionApi.createHistory(
         id: Constant.getUuid(),
-        userId: driverId,
+        userId: driverIdInt,
         subscriptionPlanId: selectedSubscriptionPlan.value.id,
         subscriptionPlanData: selectedSubscriptionPlan.value.toJson(),
         paymentType: selectedPaymentMethod.value,
-        expiryDate: driverUserModel.value.subscriptionExpiryDate?.toIso8601String(),
+        expiryDate: expiryDateStr,
       );
 
       // Handle wallet payment
       if (selectedPaymentMethod.value == paymentModel.value.wallet!.name) {
         // Deduct from wallet via API
         await WalletApi.withdrawMoney(
-          userId: driverId,
-          userType: 'driver',
+          driverId: driverIdInt,
           amount: totalAmount.value,
+          paymentMethod: selectedPaymentMethod.value,
           note: "Subscription Amount debited".tr,
         );
         driverUserModel.value.walletAmount = (double.parse(driverUserModel.value.walletAmount.toString()) - totalAmount.value).toString();
       }
 
-      // Update driver subscription info via API
-      await DriverApi.updateProfile(
-        driverId: driverId,
-        data: {
-          'subscription_plan_id': driverUserModel.value.subscriptionPlanId,
-          'subscription_total_orders': driverUserModel.value.subscriptionTotalOrders,
-          'subscription_expiry_date': driverUserModel.value.subscriptionExpiryDate?.toIso8601String(),
-          'wallet_amount': driverUserModel.value.walletAmount,
-        },
-      );
+      // Note: Driver subscription info (plan_id, total_orders, expiry_date, wallet_amount) 
+      // should be updated automatically by the backend when subscription history is created
       
       ShowToastDialog.closeLoader();
       if (isShowing.value == true) {

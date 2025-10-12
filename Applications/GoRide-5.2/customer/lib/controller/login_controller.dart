@@ -5,7 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:customer/constant/show_toast_dialog.dart';
 import 'package:customer/ui/auth_screen/otp_screen.dart';
 import 'package:customer/ui/dashboard_screen.dart';
-import 'package:customer/services/laravel_service.dart';
+import 'package:customer/utils/user_api.dart';
 import 'package:customer/model/user_model.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -67,15 +67,27 @@ class LoginController extends GetxController {
     try {
       User? firebaseUser = userCredential.user;
       if (firebaseUser != null) {
-        // Login with Laravel API using Firebase user info
-        UserModel? user = await LaravelService.loginUser(
-          firebaseUid: firebaseUser.uid,
-          email: firebaseUser.email ?? '',
-          fullName: firebaseUser.displayName ?? 'User',
-          phoneNumber: firebaseUser.phoneNumber ?? phoneNumberController.value.text,
-          countryCode: countryCode.value,
-          loginType: 'phone',
-        );
+        // Get or register user via API
+        final response = await UserApi.getProfile(firebaseUser.uid);
+        UserModel? user;
+        
+        if (response['success'] == true && response['user'] != null) {
+          user = UserModel.fromJson(response['user']);
+        } else {
+          // Register new user
+          final registerResponse = await UserApi.register(
+            uid: firebaseUser.uid,
+            email: firebaseUser.email ?? '',
+            fullName: firebaseUser.displayName ?? 'User',
+            phoneNumber: firebaseUser.phoneNumber ?? phoneNumberController.value.text,
+            countryCode: countryCode.value,
+            loginType: 'phone',
+          );
+          
+          if (registerResponse['success'] == true && registerResponse['user'] != null) {
+            user = UserModel.fromJson(registerResponse['user']);
+          }
+        }
         
         ShowToastDialog.closeLoader();
         
@@ -119,14 +131,28 @@ class LoginController extends GetxController {
       // Sign in to Firebase
       final UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
       
-      // Login with Laravel API using Firebase UID
-      UserModel? user = await LaravelService.loginUser(
-        firebaseUid: userCredential.user!.uid,
-        email: googleUser.email,
-        fullName: googleUser.displayName ?? 'Google User',
-        loginType: 'google',
-        profilePic: googleUser.photoUrl,
-      );
+      // Get or register user via API
+      final response = await UserApi.getProfile(userCredential.user!.uid);
+      UserModel? user;
+      
+      if (response['success'] == true && response['user'] != null) {
+        user = UserModel.fromJson(response['user']);
+      } else {
+        // Register new user
+        final registerResponse = await UserApi.register(
+          uid: userCredential.user!.uid,
+          email: googleUser.email,
+          fullName: googleUser.displayName ?? 'Google User',
+          phoneNumber: '',
+          countryCode: '+993',
+          loginType: 'google',
+          profilePic: googleUser.photoUrl,
+        );
+        
+        if (registerResponse['success'] == true && registerResponse['user'] != null) {
+          user = UserModel.fromJson(registerResponse['user']);
+        }
+      }
       
       ShowToastDialog.closeLoader();
       

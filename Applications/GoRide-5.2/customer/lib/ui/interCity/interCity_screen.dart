@@ -626,8 +626,10 @@ class InterCityScreen extends StatelessWidget {
                                                       whenTime: intercityOrderModel.whenTime!,
                                                       whenDates: intercityOrderModel.whenDates!,
                                                       comments: intercityOrderModel.comments ?? '',
-                                                      zoneId: intercityOrderModel.zoneId,
-                                                      parcelImage: intercityOrderModel.parcelImage,
+                                                      zoneId: intercityOrderModel.zoneId != null ? int.tryParse(intercityOrderModel.zoneId!) : null,
+                                                      parcelImage: (intercityOrderModel.parcelImage != null && intercityOrderModel.parcelImage!.isNotEmpty) 
+                                                        ? intercityOrderModel.parcelImage!.first.toString() 
+                                                        : null,
                                                       parcelWeight: intercityOrderModel.parcelWeight,
                                                       parcelDimension: intercityOrderModel.parcelDimension,
                                                       sourceCity: intercityOrderModel.sourceCity,
@@ -729,8 +731,9 @@ class InterCityScreen extends StatelessWidget {
                                                       whenTime: intercityOrderModel.whenTime!,
                                                       whenDates: intercityOrderModel.whenDates!,
                                                       comments: intercityOrderModel.comments ?? '',
-                                                      zoneId: intercityOrderModel.zoneId,
-                                                      freightVehicle: intercityOrderModel.freightVehicle?.toJson(),
+                                                      zoneId: intercityOrderModel.zoneId != null ? int.tryParse(intercityOrderModel.zoneId!) : null,
+                                                      parcelWeight: intercityOrderModel.parcelWeight,
+                                                      parcelDimension: intercityOrderModel.parcelDimension,
                                                       sourceCity: intercityOrderModel.sourceCity,
                                                       destinationCity: intercityOrderModel.destinationCity,
                                                     );
@@ -822,8 +825,9 @@ class InterCityScreen extends StatelessWidget {
                                                       whenTime: intercityOrderModel.whenTime!,
                                                       whenDates: intercityOrderModel.whenDates!,
                                                       comments: intercityOrderModel.comments ?? '',
-                                                      zoneId: intercityOrderModel.zoneId,
-                                                      someOneElse: intercityOrderModel.someOneElse?.toJson(),
+                                                      zoneId: intercityOrderModel.zoneId != null ? int.tryParse(intercityOrderModel.zoneId!) : null,
+                                                      parcelWeight: intercityOrderModel.parcelWeight,
+                                                      parcelDimension: intercityOrderModel.parcelDimension,
                                                       sourceCity: intercityOrderModel.sourceCity,
                                                       destinationCity: intercityOrderModel.destinationCity,
                                                     );

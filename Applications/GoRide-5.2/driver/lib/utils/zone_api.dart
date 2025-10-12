@@ -5,7 +5,7 @@ class ZoneApi {
   /// Get all active zones
   static Future<Map<String, dynamic>> getAllZones() async {
     try {
-      final response = await ApiService.get('zones');
+      final response = await ApiService.get('/api/v1/zones');
       return response;
     } catch (e) {
       log('❌ Get Zones Error: $e');
@@ -16,7 +16,7 @@ class ZoneApi {
   /// Get zone by ID
   static Future<Map<String, dynamic>> getZoneById(int zoneId) async {
     try {
-      final response = await ApiService.get('zones/$zoneId');
+      final response = await ApiService.get('/api/v1/zones/$zoneId');
       return response;
     } catch (e) {
       log('❌ Get Zone Error: $e');

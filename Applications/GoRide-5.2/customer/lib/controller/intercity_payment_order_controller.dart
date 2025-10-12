@@ -27,7 +27,6 @@ import 'package:customer/payment/xenditScreen.dart';
 import 'package:customer/themes/app_colors.dart';
 import 'package:customer/utils/fire_store_utils.dart';
 import 'package:customer/utils/driver_api.dart';
-import 'package:customer/utils/driver_wallet_api.dart';
 import 'package:customer/utils/intercity_order_api.dart';
 import 'package:customer/utils/user_api.dart';
 import 'package:flutter/material.dart';
@@ -119,25 +118,7 @@ class IntercityPaymentOrderController extends GetxController {
         adminCommission: orderModel.value.adminCommission
       );
 
-      // 1. Add ride amount to driver wallet
-      await DriverWalletApi.addTransaction(
-        driverId: orderModel.value.driverId.toString(),
-        amount: totalAmount,
-        orderId: orderModel.value.id!,
-        orderType: 'intercity',
-        note: 'Ride amount credited',
-        paymentType: 'wallet',
-      );
-
-      // 2. Deduct admin commission from driver wallet
-      await DriverWalletApi.addTransaction(
-        driverId: orderModel.value.driverId.toString(),
-        amount: -double.parse(adminCommission.toString()),
-        orderId: orderModel.value.id!,
-        orderType: 'intercity',
-        note: 'Admin commission debited',
-        paymentType: 'wallet',
-      );
+      // Note: Driver wallet transactions should be handled by backend automatically
 
       // 3. Check and process referral (if needed)
       // Note: Referral system not implemented in MySQL yet

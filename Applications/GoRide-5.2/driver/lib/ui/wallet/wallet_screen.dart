@@ -20,7 +20,7 @@ import 'package:driver/utils/DarkThemeProvider.dart';
 import 'package:driver/utils/fire_store_utils.dart';
 import 'package:driver/utils/order_api.dart';
 import 'package:driver/utils/intercity_order_api.dart';
-import 'package:driver/utils/driver_wallet_api.dart';
+// import 'package:driver/utils/driver_wallet_api.dart'; // Backend handles wallet transactions
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -110,7 +110,7 @@ class WalletScreen extends StatelessWidget {
                                         onTap: () async {
                                           try {
                                             if (walletTransactionModel.orderType == "city") {
-                                              final response = await OrderApi.getOrderById(walletTransactionModel.transactionId.toString());
+                                              final response = await OrderApi.getOrderById(int.parse(walletTransactionModel.transactionId.toString()));
                                               if (response['success'] == true && response['order'] != null) {
                                                 OrderModel orderModel = OrderModel.fromJson(response['order']);
                                                 Get.to(const CompleteOrderScreen(), arguments: {
@@ -1355,17 +1355,17 @@ class WalletScreen extends StatelessWidget {
                               ShowToastDialog.showLoader("Please wait".tr);
                               
                               try {
-                                // Deduct amount from driver wallet
-                                await DriverWalletApi.addTransaction(
-                                  driverId: controller.driverUserModel.value.id!,
-                                  amount: -double.parse(controller.withdrawalAmountController.value.text),
-                                  orderId: Constant.getUuid(), // Withdrawal ID
-                                  orderType: 'withdrawal',
-                                  note: controller.noteController.value.text.isNotEmpty 
-                                    ? controller.noteController.value.text 
-                                    : 'Withdrawal request',
-                                  paymentType: 'wallet',
-                                );
+                                // Note: Driver wallet transactions are handled by the backend automatically
+                                // await DriverWalletApi.addTransaction(
+                                //   driverId: controller.driverUserModel.value.id!,
+                                //   amount: -double.parse(controller.withdrawalAmountController.value.text),
+                                //   orderId: Constant.getUuid(), // Withdrawal ID
+                                //   orderType: 'withdrawal',
+                                //   note: controller.noteController.value.text.isNotEmpty 
+                                //     ? controller.noteController.value.text 
+                                //     : 'Withdrawal request',
+                                //   paymentType: 'wallet',
+                                // );
 
                                 // TODO: Implement withdrawal request API endpoint
                                 // WithdrawModel withdrawModel = WithdrawModel();

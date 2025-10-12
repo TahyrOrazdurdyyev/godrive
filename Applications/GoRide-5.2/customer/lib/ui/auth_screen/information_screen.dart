@@ -13,7 +13,7 @@ import 'package:customer/controller/information_controller.dart';
 import 'package:customer/model/referral_model.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/model/user_model.dart';
-import 'package:customer/services/laravel_service.dart';
+import 'package:customer/utils/user_api.dart';
 import 'package:customer/utils/Preferences.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/themes/app_colors.dart';
@@ -164,27 +164,28 @@ class InformationScreen extends StatelessWidget {
                                 print("🔥 Phone: ${controller.phoneNumberController.value.text}");
                                 print("🔥 Country Code: ${controller.countryCode.value}");
 
-                                // Register user with Laravel API
-                                UserModel? registeredUser = await LaravelService.loginUser(
-                                  firebaseUid: firebaseUid,
+                                // Register user via API
+                                final registerResponse = await UserApi.register(
+                                  uid: firebaseUid,
                                   email: controller.emailController.value.text,
                                   fullName: controller.fullNameController.value.text,
                                   phoneNumber: controller.phoneNumberController.value.text,
                                   countryCode: controller.countryCode.value,
-                                  loginType: 'phone', // Fixed loginType
+                                  loginType: 'phone',
                                 );
 
                                 ShowToastDialog.closeLoader();
                                 
-                                if (registeredUser != null) {
+                                if (registerResponse['success'] == true && registerResponse['user'] != null) {
                                   print("🎉 Registration successful!");
+                                  UserModel registeredUser = UserModel.fromJson(registerResponse['user']);
                                   // Save user data to preferences
-                                  await Preferences.setString(Preferences.user, json.encode(registeredUser.toJson()));
+                                  await Preferences.setString(Preferences.user, json.encode(registerResponse['user']));
                                   print("🎉 User data saved to preferences");
                                   ShowToastDialog.showToast("Account created successfully!");
                                   Get.offAll(const DashBoardScreen());
                                 } else {
-                                  print("❌ Registration failed - registeredUser is null");
+                                  print("❌ Registration failed - ${registerResponse['message']}");
                                   ShowToastDialog.showToast("Registration failed. Please try again.");
                                 }
                               } catch (e) {

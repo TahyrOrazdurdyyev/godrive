@@ -66,12 +66,12 @@ class OrderBidApi {
     try {
       final response = await ApiService.post(
         '/api/orders/$orderId/bids',
-        queryParams: {'order_type': orderType},
         body: {
           'driver_id': driverId,
           'status': status,
           if (offerAmount != null) 'offer_amount': offerAmount,
           if (driverNote != null) 'driver_note': driverNote,
+          if (orderType != null) 'order_type': orderType,
         },
       );
       return response;

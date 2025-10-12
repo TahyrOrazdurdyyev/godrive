@@ -20,7 +20,7 @@ class CompleteOrderController extends GetxController {
     try {
       if (orderModel.value.driverId == null) return;
       
-      final response = await DriverApi.getProfile(int.parse(orderModel.value.driverId!));
+      final response = await DriverApi.getProfile(orderModel.value.driverId!);
       
       if (response['success'] == true && response['driver'] != null) {
         driverModel.value = DriverUserModel.fromJson(response['driver']);

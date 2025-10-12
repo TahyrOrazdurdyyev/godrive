@@ -91,8 +91,8 @@ class OrderMapController extends GetxController {
               driverModel.value.subscriptionTotalOrders = 
                 (int.parse(driverModel.value.subscriptionTotalOrders.toString()) - 1).toString();
               await DriverApi.updateProfile(
-                driverId: driverModel.value.id!,
-                data: {'subscription_total_orders': driverModel.value.subscriptionTotalOrders},
+                uid: FireStoreUtils.getCurrentUid(),
+                subscriptionTotalOrders: driverModel.value.subscriptionTotalOrders,
               );
             }
             

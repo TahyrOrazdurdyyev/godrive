@@ -47,7 +47,7 @@ class RatingController extends GetxController {
           : intercityOrderModel.value.driverId;
       
       if (driverId != null) {
-        final driverResponse = await DriverApi.getProfile(int.parse(driverId));
+        final driverResponse = await DriverApi.getProfile(driverId);
         if (driverResponse['success'] == true && driverResponse['driver'] != null) {
           driverModel.value = DriverUserModel.fromJson(driverResponse['driver']);
         }

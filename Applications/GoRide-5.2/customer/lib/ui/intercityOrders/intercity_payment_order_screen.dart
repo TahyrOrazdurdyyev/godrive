@@ -1378,9 +1378,9 @@ class InterCityPaymentOrderScreen extends StatelessWidget {
                                   
                                   // Withdraw money from wallet via API
                                   await WalletApi.withdrawMoney(
+                                    userType: 'customer',
                                     userId: userId,
                                     amount: double.parse(controller.calculateAmount().toString()),
-                                    transactionId: orderModel.id!,
                                     note: "Ride amount debit".tr,
                                   );
                                   

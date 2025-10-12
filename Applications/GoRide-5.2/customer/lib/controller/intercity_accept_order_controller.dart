@@ -94,10 +94,7 @@ class InterCityAcceptOrderController extends GetxController {
     if (orderModel.value.id == null) return;
 
     try {
-      final response = await OrderBidApi.getAcceptedBids(
-        orderId: orderModel.value.id!,
-        orderType: 'intercity',
-      );
+      final response = await OrderBidApi.getAcceptedBids(orderModel.value.id!);
 
       if (response['success'] == true && response['bids'] != null) {
         acceptedBids.value = List<Map<String, dynamic>>.from(response['bids']);
@@ -114,12 +111,11 @@ class InterCityAcceptOrderController extends GetxController {
     order.id = orderData['id']?.toString();
     order.userId = orderData['user_id']?.toString();
     order.driverId = orderData['driver_id']?.toString();
-    order.serviceId = orderData['service_id']?.toString();
+    order.intercityServiceId = orderData['service_id']?.toString();
     order.sourceLocationName = orderData['source_location_name'];
     order.destinationLocationName = orderData['destination_location_name'];
     order.distance = orderData['distance']?.toString();
     order.distanceType = orderData['distance_type'] ?? 'km';
-    order.duration = orderData['duration'];
     order.offerRate = orderData['offer_rate']?.toString();
     order.finalRate = orderData['final_rate']?.toString();
     order.paymentType = orderData['payment_type'];

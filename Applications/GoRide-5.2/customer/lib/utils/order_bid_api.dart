@@ -45,15 +45,17 @@ class OrderBidApi {
     String? status,
     double? offerAmount,
     String? driverNote,
+    String? orderType,
   }) async {
     try {
-      final body = {
+      final Map<String, dynamic> body = {
         'driver_id': driverId,
       };
 
       if (status != null) body['status'] = status;
       if (offerAmount != null) body['offer_amount'] = offerAmount;
       if (driverNote != null) body['driver_note'] = driverNote;
+      if (orderType != null) body['order_type'] = orderType;
 
       final response = await ApiService.post('/api/orders/$orderId/bids', body: body);
       return response;

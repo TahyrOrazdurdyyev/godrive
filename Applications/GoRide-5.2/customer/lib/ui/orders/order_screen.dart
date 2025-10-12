@@ -298,7 +298,7 @@ class OrderScreen extends StatelessWidget {
                                                                         final customer = UserModel.fromJson(userResponse['user']);
                                                                         
                                                                         // Get driver data
-                                                                        final driverResponse = await DriverApi.getProfile(int.parse(orderModel.driverId ?? '0'));
+                                                                        final driverResponse = await DriverApi.getProfile(orderModel.driverId ?? '0');
                                                                         final driver = DriverUserModel.fromJson(driverResponse['driver']);
 
                                                                         Get.to(ChatScreens(
@@ -331,7 +331,7 @@ class OrderScreen extends StatelessWidget {
                                                                   child: InkWell(
                                                                     onTap: () async {
                                                                       try {
-                                                                        final driverResponse = await DriverApi.getProfile(int.parse(orderModel.driverId ?? '0'));
+                                                                        final driverResponse = await DriverApi.getProfile(orderModel.driverId ?? '0');
                                                                         final driver = DriverUserModel.fromJson(driverResponse['driver']);
                                                                         Constant.makePhoneCall("${driver.countryCode}${driver.phoneNumber}");
                                                                       } catch (e) {

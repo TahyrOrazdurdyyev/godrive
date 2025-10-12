@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:customer/constant/show_toast_dialog.dart';
 import 'package:customer/model/user_model.dart';
-import 'package:customer/services/laravel_service.dart';
+import 'package:customer/utils/user_api.dart';
 import 'package:customer/utils/fire_store_utils.dart';
 import 'package:customer/utils/Preferences.dart';
 import 'package:flutter/material.dart';
@@ -66,39 +66,36 @@ class ProfileController extends GetxController {
     }
   }
 
-  // Upload avatar to Laravel API
+  // Upload avatar - convert to base64 for API
   Future<String?> uploadAvatarToLaravel(File imageFile) async {
     try {
-      return await LaravelService.uploadCustomerAvatar(imageFile);
+      final bytes = await imageFile.readAsBytes();
+      final base64Image = base64Encode(bytes);
+      return 'data:image/jpeg;base64,$base64Image';
     } catch (e) {
       debugPrint("Error uploading avatar: $e");
       return null;
     }
   }
 
-  // Update profile via Laravel API
+  // Update profile via API
   Future<bool> updateProfile() async {
     try {
-      UserModel updatedUser = userModel.value;
-      updatedUser.fullName = fullNameController.value.text;
-      updatedUser.email = emailController.value.text;
-      updatedUser.phoneNumber = phoneNumberController.value.text;
-      updatedUser.countryCode = countryCode.value;
-      updatedUser.profilePic = profileImage.value;
-
-      // Update user in Laravel API
-      UserModel? result = await LaravelService.updateCustomerProfile(
-        fullName: updatedUser.fullName,
-        email: updatedUser.email,
-        phoneNumber: updatedUser.phoneNumber,
-        countryCode: updatedUser.countryCode,
-        profilePic: updatedUser.profilePic,
+      final uid = FireStoreUtils.getCurrentUid();
+      
+      final response = await UserApi.updateProfile(
+        uid: uid,
+        fullName: fullNameController.value.text,
+        email: emailController.value.text,
+        phoneNumber: phoneNumberController.value.text,
+        countryCode: countryCode.value,
+        profilePic: profileImage.value,
       );
 
-      if (result != null) {
+      if (response['success'] == true && response['user'] != null) {
         // Save updated user to preferences
-        userModel.value = result;
-        await Preferences.setString(Preferences.user, json.encode(result.toJson()));
+        userModel.value = UserModel.fromJson(response['user']);
+        await Preferences.setString(Preferences.user, json.encode(response['user']));
         return true;
       }
       return false;

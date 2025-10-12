@@ -45,9 +45,10 @@ class ServiceModel {
       this.adminCommission});
 
   ServiceModel.fromJson(Map<String, dynamic> json) {
-    image = json['image'];
-    enable = json['enable'];
-    offerRate = json['offerRate'] ?? json['offer_rate'];
+    image = json['image']?.toString().replaceAll(':8080', '');
+    // Convert int to bool (1 = true, 0 = false)
+    enable = json['enable'] == 1 || json['enable'] == true;
+    offerRate = (json['offerRate'] ?? json['offer_rate']) == 1 || (json['offerRate'] ?? json['offer_rate']) == true;
     // Convert int/decimal to String for compatibility
     id = json['id']?.toString();
     acCharge = json['acCharge']?.toString() ?? json['ac_charge']?.toString();
@@ -61,8 +62,9 @@ class ServiceModel {
     nightCharge = json['nightCharge']?.toString() ?? json['night_charge']?.toString();
     perMinuteCharge = json['perMinuteCharge']?.toString() ?? json['per_minute_charge']?.toString();
     kmCharge = json['kmCharge']?.toString() ?? json['km_charge']?.toString();
-    intercityType = json['intercityType'] ?? json['intercity_type'];
-    isAcNonAc = json['isAcNonAc'] ?? json['is_ac_non_ac'];
+    // Convert int to bool
+    intercityType = (json['intercityType'] ?? json['intercity_type']) == 1 || (json['intercityType'] ?? json['intercity_type']) == true;
+    isAcNonAc = (json['isAcNonAc'] ?? json['is_ac_non_ac']) == 1 || (json['isAcNonAc'] ?? json['is_ac_non_ac']) == true;
     adminCommission = json['adminCommission'] != null
         ? AdminCommission.fromJson(json['adminCommission'])
         : (json['admin_commission_data'] != null 

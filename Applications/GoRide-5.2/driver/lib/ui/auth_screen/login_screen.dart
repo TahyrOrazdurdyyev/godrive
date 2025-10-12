@@ -140,7 +140,7 @@ class LoginScreen extends StatelessWidget {
                           iconAssetImage: 'assets/icons/ic_google.png',
                           onPress: () async {
                             ShowToastDialog.showLoader("Please wait".tr);
-                            await controller.signInWithGoogle().then((value) {
+                            await controller.signInWithGoogle().then((value) async {
                               ShowToastDialog.closeLoader();
                               if (value != null) {
                                 if (value.additionalUserInfo!.isNewUser) {
@@ -165,7 +165,7 @@ class LoginScreen extends StatelessWidget {
                                       // Update FCM token
                                       String token = await NotificationService.getToken();
                                       await DriverApi.updateFcmToken(
-                                        driverId: driverResponse['driver']['id'],
+                                        uid: value.user!.uid,
                                         fcmToken: token,
                                       );
 
@@ -239,7 +239,7 @@ class LoginScreen extends StatelessWidget {
                               iconColor: themeChange.getThem() ? AppColors.darkModePrimary : Colors.black,
                               onPress: () async {
                                 ShowToastDialog.showLoader("Please wait".tr);
-                                await controller.signInWithApple().then((value) {
+                                await controller.signInWithApple().then((value) async {
                                   ShowToastDialog.closeLoader();
                                   if (value != null) {
                                     Map<String, dynamic> map = value;

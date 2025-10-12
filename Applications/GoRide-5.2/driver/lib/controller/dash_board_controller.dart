@@ -31,6 +31,8 @@ class DashBoardController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    setDrawerList();
+    getLocation();
     loadDriverProfile();
     _startPeriodicRefresh();
   }
@@ -155,14 +157,6 @@ class DashBoardController extends GetxController {
     }
 
     Get.back();
-  }
-
-  @override
-  void onInit() {
-    // TODO: implement onInit
-    setDrawerList();
-    getLocation();
-    super.onInit();
   }
 
   setDrawerList() {

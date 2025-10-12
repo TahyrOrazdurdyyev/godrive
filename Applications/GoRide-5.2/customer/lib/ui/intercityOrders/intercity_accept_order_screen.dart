@@ -269,7 +269,7 @@ class InterCityAcceptOrderScreen extends StatelessWidget {
                                                                                           // Update bid status to rejected
                                                                                           await OrderBidApi.createOrUpdateBid(
                                                                                             orderId: orderModel.id!,
-                                                                                            driverId: driverModel.id!,
+                                                                                            driverId: int.parse(driverModel.id!),
                                                                                             status: 'rejected',
                                                                                             orderType: 'intercity',
                                                                                           );
@@ -352,8 +352,8 @@ class InterCityAcceptOrderScreen extends StatelessWidget {
     driver.profilePic = bid['driver_profile_pic'] ?? '';
     driver.phoneNumber = bid['driver_phone'] ?? '';
     driver.email = bid['driver_email'] ?? '';
-    driver.reviewsSum = double.tryParse(bid['reviews_sum']?.toString() ?? '0') ?? 0;
-    driver.reviewsCount = int.tryParse(bid['reviews_count']?.toString() ?? '0') ?? 0;
+    driver.reviewsSum = bid['reviews_sum']?.toString() ?? '0';
+    driver.reviewsCount = bid['reviews_count']?.toString() ?? '0';
     // Vehicle information should be fetched separately if needed
     return driver;
   }

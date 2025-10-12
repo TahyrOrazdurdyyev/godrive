@@ -30,17 +30,16 @@ class SettingController extends GetxController {
         languageList.value = (response['languages'] as List)
             .map((json) => LanguageModel.fromJson(json))
             .toList();
-          if (Preferences.getString(Preferences.languageCodeKey).toString().isNotEmpty) {
-            LanguageModel pref = Constant.getLanguage();
+        if (Preferences.getString(Preferences.languageCodeKey).toString().isNotEmpty) {
+          LanguageModel pref = Constant.getLanguage();
 
-            for (var element in languageList) {
-              if (element.id == pref.id) {
-                selectedLanguage.value = element;
-              }
+          for (var element in languageList) {
+            if (element.id == pref.id) {
+              selectedLanguage.value = element;
             }
           }
         }
-      });
+      }
     } catch (e) {
       print('❌ Error loading languages: $e');
     }

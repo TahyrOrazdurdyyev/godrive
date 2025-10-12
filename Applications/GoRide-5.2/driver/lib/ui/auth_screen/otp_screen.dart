@@ -109,9 +109,11 @@ class OtpScreen extends StatelessWidget {
                                     final driverData = await DriverApi.getProfile(value.user!.uid);
                                     ShowToastDialog.closeLoader();
                                     
-                                    if (driverData['success'] == true) {
+                                    if (driverData['success'] == true && driverData['driver'] != null) {
                                       // Driver exists in MySQL, proceed to dashboard
                                       log("✅ Driver found in MySQL, proceeding to dashboard");
+                                      
+                                      DriverUserModel driverProfile = DriverUserModel.fromJson(driverData['driver']);
                                       
                                       // Check subscription from API
                                       bool isPlanExpire = false;

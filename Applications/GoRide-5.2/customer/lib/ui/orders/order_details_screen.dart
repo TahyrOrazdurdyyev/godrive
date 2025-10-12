@@ -193,7 +193,7 @@ class OrderDetailsScreen extends StatelessWidget {
                                     ],
                                   ),
                                 ),
-                                FutureBuilder<List<dynamic>>(
+                                FutureBuilder<Map<String, dynamic>>(
                                   future: OrderBidApi.getAcceptedBids(orderModel.id.toString()),
                                   builder: (context, bidSnapshot) {
                                     if (bidSnapshot.connectionState == ConnectionState.waiting) {

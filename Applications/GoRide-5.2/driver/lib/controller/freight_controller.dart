@@ -87,8 +87,8 @@ class FreightController extends GetxController {
         if (driverModel.value.subscriptionTotalOrders != "-1") {
           driverModel.value.subscriptionTotalOrders = (int.parse(driverModel.value.subscriptionTotalOrders.toString()) - 1).toString();
           await DriverApi.updateProfile(
-            driverId: driverModel.value.id!,
-            data: {'subscription_total_orders': driverModel.value.subscriptionTotalOrders},
+            uid: FireStoreUtils.getCurrentUid(),
+            subscriptionTotalOrders: driverModel.value.subscriptionTotalOrders,
           );
           getDriver();
         }
@@ -148,7 +148,7 @@ class FreightController extends GetxController {
         try {
           // Update location via API
           await DriverApi.updateLocation(
-            driverId: driverModel.value.id!,
+            uid: FireStoreUtils.getCurrentUid(),
             latitude: locationData.latitude!,
             longitude: locationData.longitude!,
             rotation: locationData.heading ?? 0.0,
@@ -168,7 +168,7 @@ class FreightController extends GetxController {
             try {
               // Update location via API
               await DriverApi.updateLocation(
-                driverId: driverModel.value.id!,
+                uid: FireStoreUtils.getCurrentUid(),
                 latitude: locationData.latitude!,
                 longitude: locationData.longitude!,
                 rotation: locationData.heading ?? 0.0,

@@ -18,7 +18,7 @@ import 'package:driver/utils/DarkThemeProvider.dart';
 import 'package:driver/utils/fire_store_utils.dart';
 import 'package:driver/utils/customer_api.dart';
 import 'package:driver/utils/driver_api.dart';
-import 'package:driver/utils/driver_wallet_api.dart';
+// import 'package:driver/utils/driver_wallet_api.dart'; // Backend handles wallet transactions
 import 'package:driver/widget/location_view.dart';
 import 'package:driver/widget/user_view.dart';
 import 'package:flutter/material.dart';
@@ -296,14 +296,15 @@ class OrderFreightScreen extends StatelessWidget {
                                                       adminCommission: orderModel.adminCommission
                                                     );
                                                     
-                                                    await DriverWalletApi.addTransaction(
-                                                      driverId: orderModel.driverId!,
-                                                      amount: -double.parse(commissionAmount.toString()),
-                                                      orderId: orderModel.id!,
-                                                      orderType: 'intercity',
-                                                      note: "Admin commission debited".tr,
-                                                      paymentType: 'wallet',
-                                                    );
+                                                    // Note: Driver wallet transactions are handled by the backend automatically
+                                                    // await DriverWalletApi.addTransaction(
+                                                    //   driverId: orderModel.driverId!,
+                                                    //   amount: -double.parse(commissionAmount.toString()),
+                                                    //   orderId: orderModel.id!,
+                                                    //   orderType: 'intercity',
+                                                    //   note: "Admin commission debited".tr,
+                                                    //   paymentType: 'wallet',
+                                                    // );
 
                                                     // Send notification to customer
                                                     final customerResponse = await CustomerApi.getCustomerProfile(orderModel.userId.toString());

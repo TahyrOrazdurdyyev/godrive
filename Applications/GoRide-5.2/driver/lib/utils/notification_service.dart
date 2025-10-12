@@ -96,7 +96,7 @@ class NotificationService {
           // Get intercity order from API
           InterCityOrderModel? orderModel;
           try {
-            final response = await InterCityOrderApi.getById(int.parse(message.data['orderId']));
+            final response = await InterCityOrderApi.getById(message.data['orderId'].toString());
             if (response['success'] == true && response['order'] != null) {
               orderModel = InterCityOrderModel.fromJson(response['order']);
             }

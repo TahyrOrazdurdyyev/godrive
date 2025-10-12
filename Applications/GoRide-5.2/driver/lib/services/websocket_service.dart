@@ -85,6 +85,20 @@ class WebSocketService {
     return controller;
   }
 
+  /// Subscribe to a channel with callback (for easier usage)
+  Future<void> subscribeToChannel(String channelName, Function(String, dynamic) onMessage) async {
+    final controller = await subscribe(channelName);
+    
+    controller.stream.listen((data) {
+      final event = data['event'] as String?;
+      final eventData = data['data'];
+      
+      if (event != null) {
+        onMessage(event, eventData);
+      }
+    });
+  }
+
   /// Unsubscribe from a channel
   void unsubscribe(String channelName) {
     if (!_channelControllers.containsKey(channelName)) {

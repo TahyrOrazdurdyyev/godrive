@@ -58,34 +58,113 @@ class DriverUserModel {
       this.subscriptionPlan});
 
   DriverUserModel.fromJson(Map<String, dynamic> json) {
-    phoneNumber = json['phoneNumber'];
-    loginType = json['loginType'];
-    countryCode = json['countryCode'];
-    profilePic = json['profilePic'] ?? '';
-    documentVerification = json['documentVerification'];
-    fullName = json['fullName'];
-    isOnline = json['isOnline'];
-    id = json['id'];
-    serviceId = json['serviceId'];
-    fcmToken = json['fcmToken'];
+    // Support both camelCase (Firestore) and snake_case (Laravel API)
+    phoneNumber = json['phoneNumber'] ?? json['phone'];
+    loginType = json['loginType'] ?? json['login_type'];
+    countryCode = json['countryCode'] ?? json['country_code'];
+    profilePic = json['profilePic'] ?? json['profile_pic'] ?? '';
+    documentVerification = json['documentVerification'] ?? json['document_verification'];
+    fullName = json['fullName'] ?? json['full_name'];
+    
+    // Convert int to bool for isOnline
+    final isOnlineValue = json['isOnline'] ?? json['is_online'];
+    isOnline = isOnlineValue is bool ? isOnlineValue : (isOnlineValue == 1 || isOnlineValue == true);
+    
+    // Convert int to String for id
+    id = json['id']?.toString();
+    
+    // Convert int to String for serviceId
+    serviceId = (json['serviceId'] ?? json['service_id'])?.toString();
+    
+    fcmToken = json['fcmToken'] ?? json['fcm_token'];
     email = json['email'];
+    
     vehicleInformation = json['vehicleInformation'] != null
         ? VehicleInformation.fromJson(json['vehicleInformation'])
-        : null;
-    reviewsCount = json['reviewsCount'] ?? '0.0';
-    reviewsSum = json['reviewsSum'] ?? '0.0';
-    rotation = json['rotation'];
-    walletAmount = json['walletAmount'] ?? "0.0";
-    location = json['location'] != null
-        ? LocationLatLng.fromJson(json['location'])
-        : null;
-    position =
-        json['position'] != null ? Positions.fromJson(json['position']) : null;
-    createdAt = json['createdAt'];
-    zoneIds = json['zoneIds'];
-    subscriptionTotalOrders = json['subscriptionTotalOrders'];
-    subscriptionPlanId = json['subscriptionPlanId'];
-    subscriptionExpiryDate = json['subscriptionExpiryDate'];
+        : (json['vehicle_information'] != null
+            ? VehicleInformation.fromJson(json['vehicle_information'])
+            : null);
+    
+    reviewsCount = (json['reviewsCount'] ?? json['reviews_count'])?.toString() ?? '0.0';
+    reviewsSum = (json['reviewsSum'] ?? json['reviews_sum'])?.toString() ?? '0.0';
+    
+    rotation = json['rotation'] is String 
+        ? double.tryParse(json['rotation'])
+        : (json['rotation'] as num?)?.toDouble();
+    
+    walletAmount = (json['walletAmount'] ?? json['wallet_amount'])?.toString() ?? "0.0";
+    
+    // Location from API
+    if (json['latitude'] != null && json['longitude'] != null) {
+      location = LocationLatLng(
+        latitude: json['latitude'] is String 
+            ? double.tryParse(json['latitude'])
+            : (json['latitude'] as num?)?.toDouble(),
+        longitude: json['longitude'] is String 
+            ? double.tryParse(json['longitude'])
+            : (json['longitude'] as num?)?.toDouble(),
+      );
+    } else if (json['location'] != null) {
+      location = LocationLatLng.fromJson(json['location']);
+    }
+    
+    position = json['position'] != null ? Positions.fromJson(json['position']) : null;
+    
+    // Handle created_at
+    final createdAtValue = json['createdAt'] ?? json['created_at'];
+    if (createdAtValue != null) {
+      if (createdAtValue is Timestamp) {
+        createdAt = createdAtValue;
+      } else if (createdAtValue is String) {
+        try {
+          final dateTime = DateTime.parse(createdAtValue);
+          createdAt = Timestamp.fromDate(dateTime);
+        } catch (e) {
+          createdAt = null;
+        }
+      }
+    }
+    
+    // Handle zone_ids as array
+    if (json['zoneIds'] != null) {
+      if (json['zoneIds'] is List) {
+        zoneIds = json['zoneIds'];
+      } else if (json['zoneIds'] is String) {
+        final zoneIdsStr = json['zoneIds'] as String;
+        if (zoneIdsStr.isNotEmpty) {
+          zoneIds = zoneIdsStr.split(',').map((e) => e.trim()).toList();
+        }
+      }
+    } else if (json['zone_ids'] != null) {
+      // Convert zone_ids string to array if needed
+      if (json['zone_ids'] is List) {
+        zoneIds = json['zone_ids'];
+      } else if (json['zone_ids'] is String) {
+        final zoneIdsStr = json['zone_ids'] as String;
+        if (zoneIdsStr.isNotEmpty) {
+          zoneIds = zoneIdsStr.split(',').map((e) => e.trim()).toList();
+        }
+      }
+    }
+    
+    subscriptionTotalOrders = (json['subscriptionTotalOrders'] ?? json['subscription_total_orders'])?.toString();
+    subscriptionPlanId = (json['subscriptionPlanId'] ?? json['subscription_plan_id'])?.toString();
+    
+    // Handle subscription_expiry_date
+    final expiryDate = json['subscriptionExpiryDate'] ?? json['subscription_expiry_date'];
+    if (expiryDate != null) {
+      if (expiryDate is Timestamp) {
+        subscriptionExpiryDate = expiryDate;
+      } else if (expiryDate is String) {
+        try {
+          final dateTime = DateTime.parse(expiryDate);
+          subscriptionExpiryDate = Timestamp.fromDate(dateTime);
+        } catch (e) {
+          subscriptionExpiryDate = null;
+        }
+      }
+    }
+    
     subscriptionPlan = json['subscription_plan'] != null
         ? SubscriptionPlanModel.fromJson(json['subscription_plan'])
         : null;

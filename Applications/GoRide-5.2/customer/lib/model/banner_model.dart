@@ -7,7 +7,7 @@ class BannerModel {
   BannerModel({this.image, this.enable, this.id, this.position});
 
   BannerModel.fromJson(Map<String, dynamic> json) {
-    image = json['image'];
+    image = json['image']?.toString().replaceAll(':8080', '');
     enable = json['enable'];
     id = json['id'].toString();
     position = json['position'].toString();
