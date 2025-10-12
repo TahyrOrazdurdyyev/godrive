@@ -59,6 +59,44 @@ Route::middleware(['permission:drivers,driver.edit'])->group(function () {
 Route::middleware(['permission:drivers,driver.view'])->group(function () {
 
     Route::get('/drivers/view/{id}', [App\Http\Controllers\DriverController::class, 'view'])->name('drivers.view');
+    Route::get('/api/drivers/list', [App\Http\Controllers\DriverController::class, 'getDriversList'])->name('drivers.api.list');
+       Route::get('/api/drivers/{id}/data', [App\Http\Controllers\DriverController::class, 'getDriverData'])->name('drivers.api.data');
+       Route::get('/api/drivers/{id}/orders', [App\Http\Controllers\DriverController::class, 'getDriverOrders'])->name('drivers.api.orders');
+   Route::get('/api/drivers/{id}/reviews', [App\Http\Controllers\DriverController::class, 'getDriverReviews'])->name('drivers.api.reviews');
+   Route::get('/api/drivers/{id}/subscription-history', [App\Http\Controllers\DriverController::class, 'getDriverSubscriptionHistory'])->name('drivers.api.subscription-history');
+      Route::get('/api/drivers/{id}/wallet-transactions', [App\Http\Controllers\DriverController::class, 'getDriverWalletTransactions'])->name('drivers.api.wallet-transactions');
+   Route::get('/api/drivers/{id}/withdrawals', [App\Http\Controllers\DriverController::class, 'getDriverWithdrawals'])->name('drivers.api.withdrawals');
+   Route::get('/api/settings', [App\Http\Controllers\DriverController::class, 'getSettings'])->name('api.settings');
+   Route::post('/api/drivers/{id}/approve', [App\Http\Controllers\DriverController::class, 'approveDriver'])->name('drivers.api.approve');
+   Route::post('/api/drivers/{id}/reject', [App\Http\Controllers\DriverController::class, 'rejectDriver'])->name('drivers.api.reject');
+});
+// Driver status check (without middleware)
+Route::get('/api/driver/check-status', function (Illuminate\Http\Request $request) {
+    $uid = $request->input('uid');
+    
+    if (!$uid) {
+        return response()->json(['success' => false, 'message' => 'UID is required'], 400);
+    }
+    
+    $driver = DB::connection('mysql_main')->table('drivers')
+        ->where('uid', $uid)
+        ->first();
+    
+    if (!$driver) {
+        return response()->json(['success' => false, 'message' => 'Driver not found'], 404);
+    }
+    
+    return response()->json([
+        'success' => true,
+        'driver' => [
+            'id' => $driver->id,
+            'uid' => $driver->uid,
+            'full_name' => $driver->full_name,
+            'email' => $driver->email,
+            'phone' => $driver->phone,
+            'is_active' => $driver->is_active
+        ]
+    ]);
 });
 
 Route::middleware(['permission:drivers-document,driver.document.list'])->group(function () {
@@ -186,7 +224,9 @@ Route::middleware(['permission:deleted-banner,banner.delete.list'])->group(funct
 });
 Route::middleware(['permission:banners,banners.' . ((str_contains(Request::url(), 'save/')) ? ((explode("save/", Request::url())[1]) == 0 ? "create" : "edit") : Request::url())])->group(function () {
 
-    Route::get('/banners/save/{id}', [App\Http\Controllers\BannerController::class, 'save'])->name('banners.save');
+	Route::get('/banners/save/{id}', [App\Http\Controllers\BannerController::class, 'save'])->name('banners.save');
+	Route::post('/banners/store', [App\Http\Controllers\BannerController::class, 'store'])->name('banners.store');
+	Route::delete('/banners/{id}', [App\Http\Controllers\BannerController::class, 'destroy'])->name('banners.destroy');
 });
 Route::middleware(['permission:reports,' . ((str_contains(Request::url(), 'reports/')) ? explode("reports/", Request::url())[1] : Request::url()) . '.report'])->group(function () {
 
@@ -410,6 +450,7 @@ Route::middleware(['permission:zone,zone.list'])->group(function () {
 });
 Route::middleware(['permission:zone,zone.create'])->group(function () {
     Route::get('/zone/create', [App\Http\Controllers\ZoneController::class, 'create'])->name('zone.create');
+    Route::post("/zone/store", [App\Http\Controllers\ZoneController::class, "store"])->name("zone.store");
 });
 Route::middleware(['permission:zone,zone.edit'])->group(function () {
     Route::get('/zone/edit/{id}', [App\Http\Controllers\ZoneController::class, 'edit'])->name('zone.edit');
@@ -420,6 +461,11 @@ Route::middleware(['permission:subscription-plans,subscription-plans'])->group(f
 });
 Route::middleware(['permission:subscription-plans,subscription-plans.'.((str_contains(Request::url(), 'save')) ? (explode("save", Request::url())[1] ? "edit" : "create") : Request::url())])->group(function () {
     Route::get('/subscription-plans/save/{id?}', [App\Http\Controllers\SubscriptionPlanController::class, 'save'])->name('subscription-plans.save');
+    Route::post('/subscription-plans/store', [App\Http\Controllers\SubscriptionPlanController::class, 'store'])->name('subscription-plans.store');
+    Route::get('/subscription-plans/data', [App\Http\Controllers\SubscriptionPlanController::class, 'getPlansData'])->name('subscription-plans.data');
+    Route::get('/subscription-plans/active', [App\Http\Controllers\SubscriptionPlanController::class, 'getActivePlans'])->name('subscription-plans.active');
+    Route::post('/subscription-plans/toggle-status/{id}', [App\Http\Controllers\SubscriptionPlanController::class, 'toggleStatus'])->name('subscription-plans.toggle-status');
+    Route::delete('/subscription-plans/delete/{id}', [App\Http\Controllers\SubscriptionPlanController::class, 'destroy'])->name('subscription-plans.destroy');
 });
 Route::middleware(['permission:subscription-history,subscription.history'])->group(function () {
     Route::get('/driver/subscription-plan/history', [App\Http\Controllers\SubscriptionPlanController::class, 'SubscriptionHistory'])->name('driver.subscriptionHistory');

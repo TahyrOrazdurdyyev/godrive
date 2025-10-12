@@ -33,6 +33,16 @@
 
                             <legend>{{trans('lang.zone_create')}}</legend>
                             <div class="tab-content" id="language-contents">
+                                <!-- Static English field (no Firebase) -->
+                                <div class="tab-pane fade show active" id="content-en" role="tabpanel">
+                                    <div class="form-group row width-50">
+                                        <label class="col-3 control-label">Zone Name (EN)<span class="required-field"></span></label>
+                                        <div class="col-7">
+                                            <input type="text" class="form-control" id="zone-name-en">
+                                            <div class="form-text text-muted">Enter zone name in English</div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             <div class="form-group row width-100">
                                 <div class="form-check">
@@ -160,6 +170,8 @@
     }
 
     .map_icons {
+        z-index: 1000;
+        position: relative;
         font-size: 24px;
         color: white !important;
         padding: 10px;
@@ -207,12 +219,12 @@
 
 <script>
 
-    var database=firebase.firestore();
-    var id=database.collection("tmp").doc().id;
-    var ref=database.collection('zone');
+//     var database=// firebase.firestore();
+//     var id=database.collection("tmp").doc().id;
+//     var ref=database.collection('zone');
 
     $(document).ready(function() {
-        fetchLanguages().then(createLanguageTabs);
+//         fetchLanguages().then(createLanguageTabs);
         setTimeout(function() {
             initMap();
         },2500);
@@ -258,21 +270,32 @@
                     var area = [];
                     for (let i = 0; i < coordinates.length; i++) {
                         var item = coordinates[i];
-                        area.push(new firebase.firestore.GeoPoint(item.lat,item.lng));
+                        // area.push(new // firebase.firestore.GeoPoint(item.lat,item.lng));
                     }
                     jQuery("#overlay").show();
 
-                    database.collection('zone').doc(id).set({
-                        'id': id,
-                        'name': names,
-                        'latitude': latitude,
-                        'longitude': longitude,
-                        'area': area,
-                        'publish': publish,
-                    }).then(function(result) {
-                        jQuery("#overlay").hide();
-                        window.location.href='{{ route("zone")}}';
-                    });
+                   $.ajax({
+    url: '{{ route("zone.store") }}',
+    type: 'POST',
+    data: {
+        _token: '{{ csrf_token() }}',
+        name: names[0].name,
+        coordinates: coordinates_object,
+        enable: publish ? 1 : 0
+    },
+    success: function(response) {
+        jQuery("#overlay").hide();
+        if(response.success) {
+            window.location.href='{{ route("zone")}}';
+        } else {
+            alert('Error: ' + response.message);
+        }
+    },
+    error: function(xhr) {
+        jQuery("#overlay").hide();
+        alert('Error saving zone: ' + xhr.responseText);
+    }
+});
                 }
                 else
                 {
@@ -323,7 +346,7 @@
                                 // Check if the point is valid (has lat and lng properties)
                                 if (point && typeof point.lat === 'number' && typeof point.lng === 'number') {
                                     // Correctly create GeoPoint for each valid point and add to the area array
-                                    area.push(new firebase.firestore.GeoPoint(point.lat, point.lng));
+                                    // area.push(new // firebase.firestore.GeoPoint(point.lat, point.lng));
                                 } else {
                                     // Log the error if a point is invalid or undefined
                                     console.error("Invalid lat/lng at polygon index " + i + ", point index " + index, point);
@@ -337,7 +360,7 @@
                             // If the polygon is not an array, handle it as a single point object
                             if (polygon && typeof polygon.lat === 'number' && typeof polygon.lon === 'number') {
                                 // Correctly create GeoPoint for a single valid point and add to the area array
-                                area.push(new firebase.firestore.GeoPoint(polygon.lat, polygon.lon));
+                                // area.push(new // firebase.firestore.GeoPoint(polygon.lat, polygon.lon));
                             } else {
                                 console.error("Invalid single point object at polygon index " + i, polygon);
                                 $(".error_top").show();
@@ -348,18 +371,29 @@
                         }
                     }
                     jQuery("#overlay").show();
-                    if (latitude && longitude && area.length > 0) {
-                        database.collection('zone').doc(id).set({
-                            'id': id,
-                            'name': names,
-                            'latitude': latitude,
-                            'longitude': longitude,
-                            'area': area,
-                            'publish': publish,
-                        }).then(function (result) {
+                    if (latitude && longitude) {
+                    $.ajax({
+                        url: "{{ route("zone.store") }}",
+                        type: "POST",
+                        data: {
+                            _token: "{{ csrf_token() }}",
+                            name: names[0].name,
+                            coordinates: coordinates_object,
+                            enable: publish ? 1 : 0
+                        },
+                        success: function(response) {
                             jQuery("#overlay").hide();
-                            window.location.href = '{{ route("zone")}}';
-                        });
+                            if(response.success) {
+                                window.location.href="{{ route("zone")}}";
+                            } else {
+                                alert("Error: " + response.message);
+                            }
+                        },
+                        error: function(xhr) {
+                            jQuery("#overlay").hide();
+                            alert("Error saving zone: " + xhr.responseText);
+                        }
+                    });
                     } 
                     else
                     {
@@ -377,8 +411,6 @@
     });
 
     var map;
-    let polygon;
-    let polygonPath;
     var drawingManager;
     var selectedShape;
     var selectedKernel;
@@ -394,12 +426,7 @@
     let deleteButton , dragMap;
     let selectedPolygon = null;
 
-    var mapType = 'ONLINE';
-    database.collection('settings').doc('globalValue').get().then(async function (snapshots) {
-        var data = snapshots.data();
-        if (data && data.selectedMapType && data.selectedMapType == "osm") {
-            mapType = "OFFLINE"
-        }
+    var mapType = 'OFFLINE'; // FORCED OSM
         var onclick='',polygon='',deletearea='';
         if(mapType == "OFFLINE"){
             onclick = function() {
@@ -423,8 +450,6 @@
         document.getElementById("select-button").onclick = onclick;
         document.getElementById("add-button").onclick = polygon;
         document.getElementById("delete-all-button").onclick = deletearea;
-    });
-
     function setMapOnAll(map) {
         for(var i=0;i<gmarkers.length;i++) {
             gmarkers[i].setMap(map);
@@ -662,7 +687,7 @@
             });
     }
     function enablePolygonDrawing(map) { 
-        map.dragging.disable();
+        map.dragging.enable();
         if (!drawnItems) {
             drawnItems = new L.FeatureGroup();
             map.addLayer(drawnItems);
@@ -686,7 +711,7 @@
         });
         // Optional: Restrict dragging to only one polygon at a time (click event)
         map.on('click', function(event) {
-            map.dragging.disable();
+            map.dragging.enable();
             var latlng = event.latlng; 
             if (selectedPolygon) {
                 // If there's already a selected polygon, deselect it
@@ -709,7 +734,7 @@
     }
     // Allow deletion of selected polygon
     function deleteSelectedPolygon() {
-        map.dragging.disable();
+        map.dragging.enable();
         if (!drawnItems) {
             return;
         }
@@ -971,8 +996,8 @@
             $(".mapType").hide();
             searchBox();
             map = L.map('map').setView([default_lat, default_lng], 10);
-            map.dragging.disable();
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            map.dragging.enable();
+            L.tileLayer('http://185.10.16.248:8081/{z}/{x}/{y}.png', {
                 maxZoom: 19,
                 attribution: '© OpenStreetMap'
             }).addTo(map);
@@ -1061,16 +1086,14 @@
         }
     }
 
-    async function fetchLanguages() {
-        const languagesRef=database.collection('languages').where('isDeleted','==',false);
-        const snapshot=await languagesRef.get();
-        const languages=[];
-        snapshot.forEach(doc => {
-            languages.push(doc.data());
-        });
-        return languages;
-    }
     function createLanguageTabs(languages) {
+    async function fetchLanguages() {
+        // HARDCODED: Return static languages (no Firebase)
+        return [
+            { code: 'en', name: 'English', isDefault: true, isDeleted: false },
+            { code: 'ru', name: 'Русский', isDefault: false, isDeleted: false }
+        ];
+    }
         const tabsContainer=document.getElementById('language-tabs');
         const contentsContainer=document.getElementById('language-contents');
 

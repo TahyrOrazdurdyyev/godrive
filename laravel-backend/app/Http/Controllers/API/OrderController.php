@@ -31,6 +31,7 @@ class OrderController extends Controller
             'destination_lat' => 'required|numeric|between:-90,90',
             'destination_lng' => 'required|numeric|between:-180,180',
             'distance' => 'required|numeric|min:0',
+            'customer_offer_price' => 'required|numeric|min:0',
             'distance_type' => 'required|in:km,miles',
             'duration' => 'nullable|string',
             'payment_type' => 'required|in:cash,wallet,stripe,razorpay,paypal',
@@ -104,6 +105,13 @@ class OrderController extends Controller
                 'distance_type' => $request->distance_type,
                 'duration' => $request->duration,
                 'offer_rate' => $fare,
+                'customer_offer_price' => $request->customer_offer_price,
+                'negotiation_status' => 'pending',
+                'price_negotiation_history' => [[
+                    'type' => 'customer_initial_offer',
+                    'price' => $request->customer_offer_price,
+                    'timestamp' => now()->toISOString()
+                ]],
                 'final_rate' => $fare,
                 'payment_type' => $request->payment_type,
                 'payment_status' => false,

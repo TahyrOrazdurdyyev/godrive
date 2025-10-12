@@ -71,6 +71,7 @@
 
                                             <?php } ?>
 
+                                            <th>{{trans('lang.image')}}</th>
                                             <th>{{trans('lang.name')}}</th>
                                             <th>{{trans('lang.active')}}</th>
                                             <th>{{trans('lang.actions')}}</th>
@@ -92,193 +93,216 @@
 
 @section('scripts')
 
-
 <script type="text/javascript">
 
-    var database=firebase.firestore();
+    var append_list = '';
+    var deleteMsg = "{{trans('lang.delete_alert')}}";
+    var deleteSelectedRecordMsg = "{{trans('lang.selected_delete_alert')}}";
+    var setLanguageCode = getCookie('setLanguage');
+    var defaultLanguageCode = getCookie('defaultLanguage');
+    var user_permissions = '<?php echo @session('user_permissions') ?>';
+    try {
+    user_permissions = JSON.parse(user_permissions);
+} catch (e) {
+    console.error('🔥 Failed to parse user_permissions:', e);
+    user_permissions = [];
+}
+    var checkDeletePermission = false;
 
-    var ref=database.collection('vehicle_type');
-
-    var append_list='';
-
-    var deleteMsg="{{trans('lang.delete_alert')}}";
-    var deleteSelectedRecordMsg="{{trans('lang.selected_delete_alert')}}";
-    var setLanguageCode=getCookie('setLanguage');
-    var defaultLanguageCode=getCookie('defaultLanguage');
-
-    var user_permissions='<?php echo @session('user_permissions') ?>';
-
-    user_permissions=JSON.parse(user_permissions);
-
-    var checkDeletePermission=false;
-
-    if($.inArray('vehicle.type.delete',user_permissions)>=0) {
-        checkDeletePermission=true;
+    if ($.inArray('vehicle.type.delete', user_permissions) >= 0) {
+        checkDeletePermission = true;
     }
 
     $(document).ready(function() {
-
         jQuery("#overlay").show();
-
-        append_list=document.getElementById('append_list1');
-        append_list.innerHTML='';
-        ref.get().then(async function(snapshots) {
-            var html='';
-            if(snapshots.docs.length>0) {
-                $('.total_count').html(snapshots.docs.length);
-                html=await buildHTML(snapshots);
-            }else{
-                $('.total_count').html(0);
-            }
-            if(html!='') {
-                append_list.innerHTML=html;
-            }
-
-            if(checkDeletePermission) {
-
-                $('#taxTable').DataTable({
-                    order: [[1,'asc']],
-                    columnDefs: [
-                        {orderable: false,targets: [0,2,3]},
-                    ],
-                    "language": {
-                        "zeroRecords": "{{trans("lang.no_record_found")}}",
-                        "emptyTable": "{{trans("lang.no_record_found")}}"
-                    },
-                });
-            } else {
-                $('#taxTable').DataTable({
-                    order: [[0,'asc']],
-                    columnDefs: [
-                        {orderable: false,targets: [1,2]},
-                    ],
-                    "language": {
-                        "zeroRecords": "{{trans("lang.no_record_found")}}",
-                        "emptyTable": "{{trans("lang.no_record_found")}}"
-                    },
-                });
-            }
-            jQuery("#overlay").hide();
-        });
-
+        loadVehicleTypes();
     });
 
-    async function buildHTML(snapshots) {
-        var html='';
-        await Promise.all(snapshots.docs.map(async (listval) => {
-            var val=listval.data();
-            var getData=await getListData(val);
-            html+=getData;
-        }));
-        return html;
+    async function loadVehicleTypes() {
+        try {
+            const response = await fetch('http://185.10.16.248:8080/api/v1/vehicle-types');
+            const result = await response.json();
+            
+            if (result.success) {
+                displayVehicleTypes(result.data);
+            } else {
+                console.error('Failed to load vehicle types:', result.message);
+                jQuery("#overlay").hide();
+            }
+        } catch (error) {
+            console.error('Error loading vehicle types:', error);
+            jQuery("#overlay").hide();
+        }
     }
 
-    async function getListData(val) {
-        var html='';
-        html=html+'<tr>';
-        newdate='';
-        var id=val.id;
-        var route1='{{route("vehicle-type.edit",":id")}}';
-        route1=route1.replace(':id',id);
-        var trroute1='';
-        trroute1=trroute1.replace(':id',id);
+    function displayVehicleTypes(vehicleTypes) {
+        append_list = document.getElementById('append_list1');
+        append_list.innerHTML = '';
+        
+        $('.total_count').html(vehicleTypes.length);
+        
+        var html = '';
+        vehicleTypes.forEach((val) => {
+            html += buildRowHTML(val);
+        });
+        
+        append_list.innerHTML = html;
 
-        if(checkDeletePermission) {
-
-            html=html+'<td class="delete-all"><input type="checkbox" id="is_open_'+id+'" class="is_open" dataId="'+id+'"><label class="col-3 control-label"\n'+
-                'for="is_open_'+id+'" ></label></td>';
-        }
-        var name='';
-        if(Array.isArray(val.name)) {
-            var foundItem=val.name.find(item => item.type===setLanguageCode);
-            if(foundItem&&foundItem.name!='') {
-                name=foundItem.name;
-            } else {
-                var foundItem=val.name.find(item => item.type===defaultLanguageCode);
-                if(foundItem&&foundItem.name!='') {
-                    name=foundItem.name;
-                } else {
-                    var foundItem=val.name.find(item => item.type==='en');
-                    name=foundItem.name;
-
-                }
-            }
-
-        }
-
-        html=html+'<td>'+name+'</td>';
-        if(val.enable) {
-            html=html+'<td><label class="switch"><input type="checkbox" checked id="'+val.id+'" name="isSwitch"><span class="slider round"></span></label></td>';
+        // Initialize DataTable
+        if (checkDeletePermission) {
+            $('#taxTable').DataTable({
+                order: [[2, 'asc']],
+                columnDefs: [
+                    {orderable: false, targets: [0, 1, 3, 4]},
+                ],
+                "language": {
+                    "zeroRecords": "{{trans("lang.no_record_found")}}",
+                    "emptyTable": "{{trans("lang.no_record_found")}}"
+                },
+            });
         } else {
-            html=html+'<td><label class="switch"><input type="checkbox" id="'+val.id+'" name="isSwitch"><span class="slider round"></span></label></td>';
+            $('#taxTable').DataTable({
+                order: [[1, 'asc']],
+                columnDefs: [
+                    {orderable: false, targets: [0, 2, 3]},
+                ],
+                "language": {
+                    "zeroRecords": "{{trans("lang.no_record_found")}}",
+                    "emptyTable": "{{trans("lang.no_record_found")}}"
+                },
+            });
         }
-        html=html+'<td class="action-btn"><a href="'+route1+'"><i class="mdi mdi-lead-pencil"></i></a>';
-        if(checkDeletePermission) {
+        
+        jQuery("#overlay").hide();
+    }
 
+    function buildRowHTML(val) {
+        var html = '<tr>';
+        var id = val.id;
+        var route1 = '{{route("vehicle-type.edit",":id")}}';
+        route1 = route1.replace(':id', id);
 
-            html=html+'<a id="'+val.id+'" class="delete-btn" name="vehicle-type-delete" href="javascript:void(0)"><i class="mdi mdi-delete"></i></a>';
+        if (checkDeletePermission) {
+            html += '<td class="delete-all"><input type="checkbox" id="is_open_' + id + '" class="is_open" dataId="' + id + '"><label class="col-3 control-label" for="is_open_' + id + '" ></label></td>';
         }
-        html=html+'</td>';
-        html=html+'</tr>';
+
+        // Image
+        var imageUrl = val.image || '{{ asset("images/placeholder.png") }}';
+        html += '<td><img src="' + imageUrl + '" style="width:50px;height:50px;" onerror="this.src=\'{{ asset("images/placeholder.png") }}\'"></td>';
+
+        // Name - title is already an array from API (no parsing needed!)
+        var name = '';
+        try {
+            var titleObj = val.title;
+            
+            // titleObj is already an array from API
+            if (Array.isArray(titleObj)) {
+                var foundItem = titleObj.find(item => item.type === setLanguageCode);
+                if (foundItem && foundItem.name != '') {
+                    name = foundItem.name;
+                } else {
+                    var foundItem = titleObj.find(item => item.type === defaultLanguageCode);
+                    if (foundItem && foundItem.name != '') {
+                        name = foundItem.name;
+                    } else {
+                        var foundItem = titleObj.find(item => item.type === 'en');
+                        name = foundItem ? foundItem.name : 'N/A';
+                    }
+                }
+            } else {
+                name = 'Invalid format';
+            }
+        } catch (e) {
+            console.error('Error for ID ' + id + ':', e);
+            name = 'Error';
+        }
+        html += '<td>' + name + '</td>';
+
+        // Enable toggle
+        if (val.enable) {
+            html += '<td><label class="switch"><input type="checkbox" checked id="' + val.id + '" name="isSwitch"><span class="slider round"></span></label></td>';
+        } else {
+            html += '<td><label class="switch"><input type="checkbox" id="' + val.id + '" name="isSwitch"><span class="slider round"></span></label></td>';
+        }
+
+        // Actions
+        html += '<td class="action-btn"><a href="' + route1 + '"><i class="mdi mdi-lead-pencil"></i></a>';
+        if (checkDeletePermission) {
+            html += '<a id="' + val.id + '" class="delete-btn" name="vehicle-type-delete" href="javascript:void(0)"><i class="mdi mdi-delete"></i></a>';
+        }
+        html += '</td>';
+        html += '</tr>';
+        
         return html;
     }
 
     $("#is_active").click(function() {
-        $("#taxTable .is_open").prop('checked',$(this).prop('checked'));
+        $("#taxTable .is_open").prop('checked', $(this).prop('checked'));
     });
 
     $("#deleteAll").click(function() {
-        if($('#taxTable .is_open:checked').length) {
-            if(confirm(deleteSelectedRecordMsg)) {
+        if ($('#taxTable .is_open:checked').length) {
+            if (confirm(deleteSelectedRecordMsg)) {
                 jQuery("#overlay").show();
                 $('#taxTable .is_open:checked').each(function() {
-                    var dataId=$(this).attr('dataId');
-
-                    database.collection('vehicle_type').doc(dataId).delete().then(function() {
-
-                        window.location.reload();
-
-                    });
+                    var dataId = $(this).attr('dataId');
+                    deleteVehicleType(dataId);
                 });
-            } else {
-                return false;
             }
         } else {
             alert("{{trans('lang.select_delete_alert')}}");
         }
     });
 
-    $(document).on("click","input[name='isSwitch']",function(e) {
-
-        var ischeck=$(this).is(':checked');
-        var id=this.id;
-        if(ischeck) {
-            database.collection('vehicle_type').doc(id).update({'enable': true}).then(function(result) {
-
-            });
-        } else {
-            database.collection('vehicle_type').doc(id).update({'enable': false}).then(function(result) {
-
-            });
-        }
-
+    $(document).on("click", "input[name='isSwitch']", function(e) {
+        var ischeck = $(this).is(':checked');
+        var id = this.id;
+        
+        fetch('http://185.10.16.248:8080/api/v1/vehicle-types/' + id + '/toggle', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({enable: ischeck})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) {
+                console.error('Failed to toggle:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
     });
 
-    $(document).on("click","a[name='vehicle-type-delete']",function(e) {
-        if(confirm(deleteMsg)) {
-            var id=this.id;
+    $(document).on("click", "a[name='vehicle-type-delete']", function(e) {
+        if (confirm(deleteMsg)) {
+            var id = this.id;
             jQuery("#overlay").show();
-            database.collection('vehicle_type').doc(id).delete().then(function(result) {
-
-                window.location.href='{{ url()->current() }}';
-
-            });
-
-        } else {
-            return false;
+            deleteVehicleType(id);
         }
-
     });
+
+    function deleteVehicleType(id) {
+        fetch('http://185.10.16.248:8080/api/v1/vehicle-types/' + id, {
+            method: 'DELETE',
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                jQuery("#overlay").hide();
+                alert('Failed to delete: ' + data.message);
+            }
+        })
+        .catch(error => {
+            jQuery("#overlay").hide();
+            console.error('Error:', error);
+            alert('Error deleting vehicle type');
+        });
+    }
 
 </script>
 

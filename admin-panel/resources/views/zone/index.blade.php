@@ -63,6 +63,21 @@
                                 </tr>
                                 </thead>
                                 <tbody id="append_list1">
+                                @foreach($zones as $zone)
+                                    <tr>
+                                        <td>{{ $zone->name }}</td>
+                                        <td>
+                                            @if($zone->enable)
+                                                <span class="badge badge-success">Active</span>
+                                            @else
+                                                <span class="badge badge-danger">Inactive</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            <a href="{{ route('zone.edit', $zone->id) }}" class="btn btn-warning btn-sm">Edit</a>
+                                        </td>
+                                    </tr>
+                                @endforeach
                                 </tbody>
                             </table>
                         </div>

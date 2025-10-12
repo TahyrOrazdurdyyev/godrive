@@ -134,7 +134,7 @@
 
 
 
-    var database=firebase.firestore();
+   
 
     var offest=1;
 

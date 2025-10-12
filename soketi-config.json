@@ -1,0 +1,18 @@
+{
+  "debug": false,
+  "host": "0.0.0.0",
+  "port": 6001,
+  "appManager.array.apps": [
+    {
+      "id": "goride-app",
+      "key": "goride-key",
+      "secret": "goride-secret",
+      "maxConnections": 100,
+      "enableClientMessages": true,
+      "enabled": true,
+      "maxBackendEventsPerSecond": 100,
+      "maxClientEventsPerSecond": 100,
+      "maxReadRequestsPerSecond": 100
+    }
+  ]
+}

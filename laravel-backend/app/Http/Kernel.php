@@ -31,6 +31,8 @@ class Kernel extends HttpKernel
 
     protected $middlewareAliases = [
         'auth' => \App\Http\Middleware\Authenticate::class,
-        'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
+	'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
+	'customer' => \App\Http\Middleware\CustomerMiddleware::class,
+    'driver' => \App\Http\Middleware\DriverMiddleware::class,
     ];
 }

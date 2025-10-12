@@ -1077,7 +1077,7 @@
             searchBox();
             map = L.map('map').setView([default_lat, default_lng], 10);
             map.dragging.disable();
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            L.tileLayer('http://185.10.16.248:8081/{z}/{x}/{y}.png', {
                 maxZoom: 19,
                 attribution: '© OpenStreetMap'
             }).addTo(map);

@@ -12,9 +12,7 @@
         <div class="col-md-7 align-self-center">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="{{ url('/dashboard') }}">{{ trans('lang.dashboard') }}</a></li>
-                <li class="breadcrumb-item"><a
-                        href="{{ url('subscription-plans') }}">{{ trans('lang.subscription_plans') }}</a>
-                </li>
+                <li class="breadcrumb-item"><a href="{{ url('subscription-plans') }}">{{ trans('lang.subscription_plans') }}</a></li>
                 @if ($id == '')
                 <li class="breadcrumb-item active">{{ trans('lang.create_subscription_plan') }}</li>
                 @else
@@ -25,518 +23,246 @@
     </div>
     <div class="container-fluid">
         <div class="card-body">
-            <div class="error_top" style="display:none"></div>
-            <div class="success_top" style="display:none"></div>
-            <div class="row restaurant_payout_create">
-                <div class="restaurant_payout_create-inner">
-                    <fieldset>
-                        <legend>{{ trans('lang.plan_details') }}</legend>
-                        <div class="form-group row width-50">
-                            <label class="col-3 control-label">{{ trans('lang.plan_name') }}</label>
-                            <div class="col-7">
-                                <input type="text" class="form-control" id="plan_name"
-                                    placeholder="{{ trans('lang.enter_plan_name') }}">
-                            </div>
-                        </div>
-                        <div class="form-group row width-50">
-                            <label class="col-3 control-label" for="">{{ trans('lang.plan_type') }}</label>
-                            <div class="form-check width-50">
-                                <input type="radio" id="free_type" name="planType" value="free" checked>
-                                <label class="control-label" for="free_type">{{ trans('lang.free') }}</label>
-                            </div>
-                            <div class="form-check width-50">
-                                <input type="radio" id="paid_type" name="planType" value="paid">
-                                <label class="control-label" for="paid_type">{{ trans('lang.paid') }}</label>
-                            </div>
-                        </div>
-                        <div class="form-group row width-100 d-none plan_price_div">
-                            <label class="col-3 control-label">{{ trans('lang.plan_price') }}</label>
-                            <div class="col-7">
-                                <input type="number" class="form-control" id="plan_price"
-                                    placeholder="{{ trans('lang.enter_plan_price') }}">
-                            </div>
-                        </div>
-                     
-                <div class="form-group row width-100">
-                    <label class="col-3 control-label">{{ trans('lang.plan_validity_days') }}</label>
-                    <div class="form-check width-100">
-                        <input type="radio" id="unlimited_days" name="set_expiry_limit" value="unlimited" checked>
-                        <label class="control-label" for="unlimited_days">{{ trans('lang.unlimited') }}</label>
-                    </div>
-                    <div class="d-flex">
-                        <div class="form-check width-50 limited_days_div">
-                            <input type="radio" id="limited_days" name="set_expiry_limit" value="limited">
-                            <label class="control-label" for="limited_days">{{ trans('lang.limited') }}</label>
-                        </div>
-                        <div class="form-check width-50 d-none expiry-limit-div">
-                            <input type="number" id="plan_validity" class="form-control"
-                                placeholder="{{ trans('lang.ex_365') }}">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-group row width-100">
-                    <label class="col-3 control-label">{{ trans('lang.description') }}</label>
-                    <div class="col-7">
-                        <textarea class="form-control" id="description" rows="5"></textarea>
-                    </div>
-                </div>
-                <div class="form-group row width-100">
-                    <label class="col-3 control-label">{{ trans('lang.order') }}</label>
-                    <div class="col-7">
-                        <input type="number" class="form-control" id="order"
-                            placeholder="{{ trans('lang.enter_display_order') }}">
-                    </div>
-                </div>
-
-                <div class="form-group row width-100 status-div">
-                    <div class="form-check width-100">
-                        <input type="checkbox" id="status">
-                        <label class="control-label" for="status">{{ trans('lang.status') }}</label>
-                    </div>
-                </div>
-                <div class="form-group row width-100">
-                    <label class="col-3 control-label">{{ trans('lang.image') }}</label>
-                    <div class="col-7">
-                        <input type="file" onChange="handleFileSelect(event)" class="form-control">
-                        <div class="form-text text-muted">{{ trans('lang.image') }}</div>
-                    </div>
-                    <div class="placeholder_img_thumb plan_image"></div>
-                    <div id="uploding_image"></div>
-                </div>
-                </fieldset>
-                <fieldset id="commissionPlan-features-div">
-                        <legend>{{ trans('lang.plan_points') }}</legend>
-                        <div class="form-group row width-100 ">
-                            <div id="options-container"></div>
-                            <button id="add-plan-point" onclick="addPlanPoint()"
-                                class="btn btn-primary">{{ trans('lang.add_more') }}</button>
-                        </div>
-                    </fieldset>
-                    <fieldset>
-                        <legend>{{ trans('lang.maximum_booking_limit') }}</legend>
-                        <div class="form-group row width-100">
-                            <div class="form-check width-100">
-                                <input type="radio" id="unlimited_booking" name="set_booking_limit" value="unlimited" checked>
-                                <label class="control-label" for="unlimited_booking">{{ trans('lang.unlimited') }}</label>
-                            </div>
-                            <div class="d-flex ">
-                                <div class="form-check width-50 limited_booking_div  ">
-                                    <input type="radio" id="limited_booking" name="set_booking_limit" value="limited">
-                                    <label class="control-label" for="limited_booking">{{ trans('lang.limited') }}</label>
-                                </div>
-                                <div class="form-check width-50 d-none booking-limit-div">
-                                    <input type="number" id="booking_limit" class="form-control"
-                                        placeholder="{{ trans('lang.ex_1000') }}">
-                                </div>
-                            </div>
-                        </div>
-                    </fieldset>
-                  
-                </div>
+            @if ($errors->any())
+            <div class="alert alert-danger">
+                <ul class="mb-0">
+                    @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
             </div>
-        </div>
-        <div class="form-group col-12 text-center btm-btn">
-            <button type="button" class="btn btn-primary edit-form-btn"><i class="fa fa-save"></i>
-                {{ trans('lang.save') }}
-            </button>
-            <a href="{{ url('subscription-plans') }}" class="btn btn-default"><i
-                    class="fa fa-undo"></i>{{ trans('lang.cancel') }}</a>
+            @endif
+
+            @if (session('success'))
+            <div class="alert alert-success">
+                {{ session('success') }}
+            </div>
+            @endif
+
+            @if (session('error'))
+            <div class="alert alert-danger">
+                {{ session('error') }}
+            </div>
+            @endif
+
+            <form action="{{ route('subscription-plans.store') }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <input type="hidden" name="id" value="{{ $id }}">
+
+                <div class="row restaurant_payout_create">
+                    <div class="restaurant_payout_create-inner">
+                        <fieldset>
+                            <legend>{{ trans('lang.plan_details') }}</legend>
+                            
+                            <div class="form-group row width-50">
+                                <label class="col-3 control-label">{{ trans('lang.plan_name') }}</label>
+                                <div class="col-7">
+                                    <input type="text" class="form-control" name="title" value="{{ old('title', $plan->title ?? '') }}" placeholder="{{ trans('lang.enter_plan_name') }}" required>
+                                </div>
+                            </div>
+
+                            <div class="form-group row width-50">
+                                <label class="col-3 control-label">{{ trans('lang.plan_type') }}</label>
+                                <div class="form-check width-50">
+                                    <input type="radio" id="free_type" name="type" value="free" {{ old('type', $plan->type ?? 'free') == 'free' ? 'checked' : '' }}>
+                                    <label class="control-label" for="free_type">{{ trans('lang.free') }}</label>
+                                </div>
+                                <div class="form-check width-50">
+                                    <input type="radio" id="paid_type" name="type" value="paid" {{ old('type', $plan->type ?? '') == 'paid' ? 'checked' : '' }}>
+                                    <label class="control-label" for="paid_type">{{ trans('lang.paid') }}</label>
+                                </div>
+                            </div>
+
+                            <div class="form-group row width-100 {{ old('type', $plan->type ?? 'free') == 'paid' ? '' : 'd-none' }} plan_price_div">
+                                <label class="col-3 control-label">{{ trans('lang.plan_price') }}</label>
+                                <div class="col-7">
+                                    <input type="number" step="0.01" class="form-control" name="amount" id="plan_price" value="{{ old('amount', $plan->amount ?? '') }}" placeholder="{{ trans('lang.enter_plan_price') }}">
+                                </div>
+                            </div>
+
+                            <div class="form-group row width-100">
+                                <label class="col-3 control-label">{{ trans('lang.plan_validity_days') }}</label>
+                                <div class="form-check width-100">
+                                    <input type="radio" id="unlimited_days" name="duration_type" value="unlimited" {{ old('duration_days', $plan->duration_days ?? -1) == -1 ? 'checked' : '' }}>
+                                    <label class="control-label" for="unlimited_days">{{ trans('lang.unlimited') }}</label>
+                                </div>
+                                <div class="d-flex">
+                                    <div class="form-check width-50">
+                                        <input type="radio" id="limited_days" name="duration_type" value="limited" {{ old('duration_days', $plan->duration_days ?? -1) != -1 ? 'checked' : '' }}>
+                                        <label class="control-label" for="limited_days">{{ trans('lang.limited') }}</label>
+                                    </div>
+                                    <div class="form-check width-50 {{ old('duration_days', $plan->duration_days ?? -1) != -1 ? '' : 'd-none' }} expiry-limit-div">
+                                        <input type="number" name="duration_days" id="plan_validity" class="form-control" value="{{ old('duration_days', $plan->duration_days ?? '') }}" placeholder="{{ trans('lang.ex_365') }}">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group row width-100">
+                                <label class="col-3 control-label">{{ trans('lang.description') }}</label>
+                                <div class="col-7">
+                                    <textarea class="form-control" name="description" rows="5">{{ old('description', $plan->description ?? '') }}</textarea>
+                                </div>
+                            </div>
+
+                            <div class="form-group row width-100">
+                                <label class="col-3 control-label">{{ trans('lang.order') }}</label>
+                                <div class="col-7">
+                                    <input type="number" class="form-control" name="display_order" value="{{ old('display_order', $plan->display_order ?? 0) }}" placeholder="{{ trans('lang.enter_display_order') }}" required>
+                                </div>
+                            </div>
+
+                            <div class="form-group row width-100">
+                                <div class="form-check width-100">
+                                    <input type="checkbox" name="enable" id="status" value="1" {{ old('enable', $plan->enable ?? false) ? 'checked' : '' }}>
+                                    <label class="control-label" for="status">{{ trans('lang.status') }}</label>
+                                </div>
+                            </div>
+
+                            <div class="form-group row width-100">
+                                <label class="col-3 control-label">{{ trans('lang.image') }}</label>
+                                <div class="col-7">
+                                    <input type="file" name="image" class="form-control" accept="image/*">
+                                    <div class="form-text text-muted">{{ trans('lang.image') }}</div>
+                                    @if(isset($plan) && $plan->image)
+                                    <div class="mt-2">
+                                        <img src="{{ asset($plan->image) }}" class="rounded" style="width:100px" alt="current image">
+                                    </div>
+                                    @endif
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <fieldset>
+                            <legend>{{ trans('lang.plan_points') }}</legend>
+                            <div class="form-group row width-100">
+                                <div id="options-container" class="col-12">
+                                    @if(old('plan_points'))
+                                        @foreach(old('plan_points') as $index => $point)
+                                        <div class="form-group d-flex ml-1 option-row mt-1">
+                                            <input type="text" class="form-control" name="plan_points[]" value="{{ $point }}" placeholder="Enter plan point">
+                                            <button type="button" class="btn btn-danger ml-2 remove-point">
+                                                <i class="mdi mdi-delete"></i>
+                                            </button>
+                                        </div>
+                                        @endforeach
+                                    @elseif(isset($plan) && $plan->plan_points)
+                                        @foreach($plan->plan_points as $index => $point)
+                                        <div class="form-group d-flex ml-1 option-row mt-1">
+                                            <input type="text" class="form-control" name="plan_points[]" value="{{ $point }}" placeholder="Enter plan point">
+                                            <button type="button" class="btn btn-danger ml-2 remove-point">
+                                                <i class="mdi mdi-delete"></i>
+                                            </button>
+                                        </div>
+                                        @endforeach
+                                    @endif
+                                </div>
+                                <button type="button" id="add-plan-point" class="btn btn-primary ml-3">{{ trans('lang.add_more') }}</button>
+                            </div>
+                        </fieldset>
+
+                        <fieldset>
+                            <legend>{{ trans('lang.maximum_booking_limit') }}</legend>
+                            <div class="form-group row width-100">
+                                <div class="form-check width-100">
+                                    <input type="radio" id="unlimited_booking" name="booking_type" value="unlimited" {{ old('total_orders', $plan->total_orders ?? -1) == -1 ? 'checked' : '' }}>
+                                    <label class="control-label" for="unlimited_booking">{{ trans('lang.unlimited') }}</label>
+                                </div>
+                                <div class="d-flex">
+                                    <div class="form-check width-50">
+                                        <input type="radio" id="limited_booking" name="booking_type" value="limited" {{ old('total_orders', $plan->total_orders ?? -1) != -1 ? 'checked' : '' }}>
+                                        <label class="control-label" for="limited_booking">{{ trans('lang.limited') }}</label>
+                                    </div>
+                                    <div class="form-check width-50 {{ old('total_orders', $plan->total_orders ?? -1) != -1 ? '' : 'd-none' }} booking-limit-div">
+                                        <input type="number" name="total_orders" id="booking_limit" class="form-control" value="{{ old('total_orders', $plan->total_orders ?? '') }}" placeholder="{{ trans('lang.ex_1000') }}">
+                                    </div>
+                                </div>
+                            </div>
+                        </fieldset>
+                    </div>
+                </div>
+
+                <div class="form-group col-12 text-center btm-btn">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fa fa-save"></i> {{ trans('lang.save') }}
+                    </button>
+                    <a href="{{ url('subscription-plans') }}" class="btn btn-default">
+                        <i class="fa fa-undo"></i>{{ trans('lang.cancel') }}
+                    </a>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 @endsection
+
 @section('scripts')
 <script>
-    var requestId="<?php echo $id; ?>";
-    var database=firebase.firestore();
-    var createdAt=firebase.firestore.FieldValue.serverTimestamp();
-    var id=(requestId=='')? database.collection("tmp").doc().id:requestId;
-    var pagesize=20;
-    var start='';
-    var placeholderImage='';
-    var planPoints=[];
-    var photo="";
-    var fileName='';
-    var planImageFile='';
-    var placeholderImage='';
-    var storageRef=firebase.storage().ref('images');
-    var storage=firebase.storage();
-    var EnabledSubscriptions='';
+    $(document).ready(function() {
+        // Plan type change handler
+        $('input[name="type"]').on('change', function() {
+            if($(this).val() == 'paid') {
+                $('.plan_price_div').removeClass('d-none');
+                $('#plan_price').attr('required', true);
+            } else {
+                $('.plan_price_div').addClass('d-none');
+                $('#plan_price').removeAttr('required').val('0');
+            }
+        });
 
-    $(document).ready(async function() {
-
-        var refactiveSubscription=await database.collection('subscription_plans').where('isEnable','==',true)
-            .where('id','!=','J0RwvxCWhZzQQD7Kc2Ll').get();
-        EnabledSubscriptions=refactiveSubscription.size;
-        $('input[name="set_expiry_limit"]').on('change',function() {
-            if($('#limited_days').is(':checked')) {
+        // Duration type change handler
+        $('input[name="duration_type"]').on('change', function() {
+            if($(this).val() == 'limited') {
                 $('.expiry-limit-div').removeClass('d-none');
+                $('#plan_validity').attr('required', true);
             } else {
                 $('.expiry-limit-div').addClass('d-none');
+                $('#plan_validity').removeAttr('required').val('-1');
             }
         });
-        $('input[name="set_booking_limit"]').on('change',function() {
-            if($('#limited_booking').is(':checked')) {
+
+        // Booking type change handler
+        $('input[name="booking_type"]').on('change', function() {
+            if($(this).val() == 'limited') {
                 $('.booking-limit-div').removeClass('d-none');
+                $('#booking_limit').attr('required', true);
             } else {
                 $('.booking-limit-div').addClass('d-none');
+                $('#booking_limit').removeAttr('required').val('-1');
             }
         });
-      
-        if(requestId!='') {
-            var ref=database.collection('subscription_plans').where('id','==',id);
-            jQuery("#data-table_processing").show();
-            ref.get().then(async function(snapshots) {
-                if(snapshots.docs.length) {
-                    var data=snapshots.docs[0].data();
-                    $("#plan_name").val(data.name);
-                    $("#plan_price").val(data.price);
-                    $('#description').val(data.description);
-                    $('#order').val(data.place);
-                    if(data.isEnable) {
-                        $("#status").prop('checked',true);
-                    }
-                    
-                    if(data.expiryDay!='-1') {
-                        $("#limited_days").prop('checked',true);
-                        $('.expiry-limit-div').removeClass('d-none');
-                        $('#plan_validity').val(data.expiryDay);
-                    } else {
-                        $("#unlimited_days").prop('checked',true);
-                    }
-                    if(data.bookingLimit!='-1') {
-                        $("#limited_booking").prop('checked',true);
-                        $('.booking-limit-div').removeClass('d-none');
-                    } else {
-                        $("#unlimited_booking").prop('checked',true);
-                    }
-                    $('#booking_limit').val(data.bookingLimit);
-                    planPoints=data.plan_points;
-                    renderPlanPoints();
-                    
-                     if(data.type=='paid') {
-                        $('#paid_type').prop('checked',true);
-                        $('.plan_price_div').removeClass('d-none');
-                    } else {
-                        $('#free_type').prop('checked',true);
-                        $('.plan_price_div').addClass('d-none');
-                    }
-                    if(data.id=='J0RwvxCWhZzQQD7Kc2Ll') {
-                        $('#free_type').prop('checked',true);
-                        $('.limited_booking_div').addClass('d-none');
-                        $('input[name="planType"]').attr('disabled',true);
-                        $('.limited_days_div').addClass('d-none');
-                        $('#status').attr('disabled',true);
-                        $('.status-div').addClass('d-none');
-                        $('#plan_price,#plan_validity,#order').attr('readonly',true);
-                    }
 
-                   
-                    if(data.image!=''&&data.image!=null) {
-                        photo=data.image;
-                        planImageFile=data.image;
-                        $(".plan_image").append('<img onerror="this.onerror=null;this.src=\''+
-                            placeholderImage+'\'" class="rounded" style="width:50px" src="'+
-                            photo+'" alt="image">');
-                    } else {
-                        $(".plan_image").append('<img class="rounded" style="width:50px" src="'+
-                            placeholderImage+'" alt="image">');
-                    }
+        // Add plan point
+        $('#add-plan-point').on('click', function() {
+            var html = '<div class="form-group d-flex ml-1 option-row mt-1">' +
+                '<input type="text" class="form-control" name="plan_points[]" placeholder="Enter plan point" required>' +
+                '<button type="button" class="btn btn-danger ml-2 remove-point">' +
+                '<i class="mdi mdi-delete"></i>' +
+                '</button>' +
+                '</div>';
+            $('#options-container').append(html);
+        });
+
+        // Remove plan point
+        $(document).on('click', '.remove-point', function() {
+            $(this).closest('.option-row').remove();
+        });
+
+        // Set hidden field values before submit based on radio selections
+        $('form').on('submit', function() {
+            if($('input[name="duration_type"]:checked').val() == 'unlimited') {
+                $('#plan_validity').val('-1');
+            }
+            if($('input[name="booking_type"]:checked').val() == 'unlimited') {
+                $('#booking_limit').val('-1');
+            }
+            
+            // Remove empty plan points
+            $('input[name="plan_points[]"]').each(function() {
+                if($(this).val().trim() == '') {
+                    $(this).closest('.option-row').remove();
                 }
-                jQuery("#data-table_processing").hide();
             });
-        }
-    });
-    $('input[name="planType"]').on('change',function() {
-        if($('input[name="planType"]:checked').val()=='free') {
-            $('.plan_price_div').addClass('d-none');
-            $("#plan_price").val(0);
-        } else {
-            $('.plan_price_div').removeClass('d-none');
-        }
-    });
-    $(".edit-form-btn").click(async function() {
-        $(".success_top").hide();
-        $(".error_top").hide();
-        var planType=$('input[name="planType"]:checked').val();
-
-        var plan_name=$("#plan_name").val();
-        var plan_price=$("#plan_price").val();
-        if(planType=='free') {
-            plan_price='0';
-        }
-        var description=$('#description').val();
-        var expiryDay=$('#plan_validity').val();
-        
-        var set_expiry_limit=$('input[name="set_expiry_limit"]:checked').val();
-        var expiry_limit=(set_expiry_limit=='limited')? expiryDay:'-1';
-       
-        var order=$('#order').val();
-        var status=$("#status").is(":checked");
-        var set_booking_limit=$('input[name="set_booking_limit"]:checked').val();
-        var booking_limit=(set_booking_limit=='limited')? $('#booking_limit').val():'-1';
-        if(plan_name.trim()=="") {
-            $(".error_top").show();
-            $(".error_top").html("");
-            $(".error_top").append("<p>{{ trans('lang.enter_plan_name') }}</p>");
-            window.scrollTo(0,0);
-            return false;
-        } else if(planType=='paid'&&plan_price=="") {
-            $(".error_top").show();
-            $(".error_top").html("");
-            $(".error_top").append("<p>{{ trans('lang.enter_plan_price') }}</p>");
-            window.scrollTo(0,0);
-            return false;
-        } else if(description.trim()=="") {
-            $(".error_top").show();
-            $(".error_top").html("");
-            $(".error_top").append("<p>{{ trans('lang.enter_description') }}</p>");
-            window.scrollTo(0,0);
-            return false;
-        } else if(set_expiry_limit=='limited'&&expiryDay=='') {
-            $(".error_top").show();
-            $(".error_top").html("");
-            $(".error_top").append("<p>{{ trans('lang.please_enter_expiry') }}</p>");
-            window.scrollTo(0,0);
-            return false;
-        } else if(expiry_limit==0) {
-            $(".error_top").show();
-            $(".error_top").html("");
-            $(".error_top").append("<p>{{ trans('lang.expiry_day_zero') }}</p>");
-            window.scrollTo(0,0);
-            return false;
-        } 
-        else if(expiry_limit<0&&expiry_limit!='-1') {
-            $(".error_top").show();
-            $(".error_top").html("");
-            $(".error_top").append("<p>{{ trans('lang.expiry_day_in_positive_no') }}</p>");
-            window.scrollTo(0,0);
-            return false;
-        } else if(order=='') {
-            $(".error_top").show();
-            $(".error_top").html("");
-            $(".error_top").append("<p>{{ trans('lang.enter_display_order') }}</p>");
-            window.scrollTo(0,0);
-            return false;
-        } else if(order==0&&(requestId!=''&&requestId!='J0RwvxCWhZzQQD7Kc2Ll')) {
-            $(".error_top").show();
-            $(".error_top").html("");
-            $(".error_top").append("<p>{{ trans('lang.commision_plan_will_be_always_at_first') }}</p>");
-            window.scrollTo(0,0);
-            return false;
-        }
-       else if(set_booking_limit=='limited'&&$('#booking_limit').val()=='') {
-            $(".error_top").show();
-            $(".error_top").html("");
-            $(".error_top").append("<p>{{ trans('lang.enter_booking_limit') }}</p>");
-            window.scrollTo(0,0);
-            return false;
-        }else if(planPoints.length==0){
-            $(".error_top").show();
-            $(".error_top").html("");
-            $(".error_top").append("<p>{{ trans('lang.enter_plan_points') }}</p>");
-            window.scrollTo(0,0);
-            return false;
-        }
-         else if(!validatePlanPoints()) {
-            return false;
-        }
-        else if(EnabledSubscriptions==0&&status==false) {
-            $(".error_top").show();
-            $(".error_top").html("");
-            $(".error_top").append(
-                "<p>{{ trans('lang.atleast_one_subscription_plan_should_be_active') }}</p>");
-            window.scrollTo(0,0);
-            return false;
-        } else {
-            requestId==''? (
-                storeImageData().then(IMG => {
-                    if(IMG=='') {
-                        $(".error_top").show();
-                        $(".error_top").html("");
-                        $(".error_top").append(
-                            "<p>{{ trans('lang.upload_plan_image') }}</p>");
-                        window.scrollTo(0,0);
-                        return false;
-                    }
-                    jQuery("#data-table_processing").show();
-                    database.collection('subscription_plans').doc(id).set({
-                        'id': id,
-                        'name': plan_name,
-                        'price': plan_price,
-                        'description': description,
-                        'expiryDay': expiry_limit,
-                        'isEnable': status,
-                        'bookingLimit': booking_limit,
-                        'place': order,
-                        'plan_points': planPoints,
-                        'type': planType,
-                        'createdAt': createdAt,
-                        'image': IMG
-                    }).then(function(result) {
-                        jQuery("#data-table_processing").hide();
-                        $(".success_top").show();
-                        $(".success_top").html("");
-                        window.scrollTo(0,0);
-                        window.location.href='{{ route('subscription-plans.index') }}';
-                    }).catch(function(error) {
-                        $(".error_top").show();
-                        $(".error_top").html("");
-                        $(".error_top").append("<p>"+error+"</p>");
-                    })
-                }).catch(function(error) {
-                    $(".error_top").show();
-                    $(".error_top").html("");
-                    $(".error_top").append("<p>"+error+"</p>");
-                })):
-                (
-                    storeImageData().then(IMG => {
-                        if(IMG=='') {
-                            $(".error_top").show();
-                            $(".error_top").html("");
-                            $(".error_top").append(
-                                "<p>{{ trans('lang.upload_plan_image') }}</p>");
-                            window.scrollTo(0,0);
-                            return false;
-                        }
-
-                        database.collection('subscription_plans').doc(id).update({
-                            'name': plan_name,
-                            'price': plan_price,
-                            'description': description,
-                            'expiryDay': expiry_limit,
-                            'isEnable': status,
-                            'bookingLimit': booking_limit,
-                            'place': order,
-                            'plan_points': planPoints,
-                            'image': IMG,
-                            'type': planType
-                        }).then(function(result) {
-                            jQuery("#data-table_processing").hide();
-                            $(".success_top").show();
-                            $(".success_top").html("");
-                            window.scrollTo(0,0);
-                            window.location.href='{{ route('subscription-plans.index') }}';
-                        }).catch(function(error) {
-                            $(".error_top").show();
-                            $(".error_top").html("");
-                            $(".error_top").append("<p>"+error+"</p>");
-                        })
-                    }).catch(function(error) {
-                        $(".error_top").show();
-                        $(".error_top").html("");
-                        $(".error_top").append("<p>"+error+"</p>");
-                    }));
-        }
-    });
-
-    function renderPlanPoints() {
-        const container=document.getElementById('options-container');
-        container.innerHTML='';
-        planPoints.forEach((point,index) => {
-            const html=`
-            <div class="form-group  d-flex ml-1 option-row mt-1" id="plan-point-${index}">
-                <input type="text" class="form-control" id="input-${index}" value="${point}" 
-                    oninput="updatePlanPoint(${index}, this.value)">
-                <button type="button" class="btn btn-danger ml-2" onclick="deletePlanPoint(${index})">
-                    <i class="mdi mdi-delete"></i>
-                </button>
-            </div>`;
-            container.insertAdjacentHTML('beforeend',html);
         });
-    }
-
-    function addPlanPoint() {
-        planPoints.push(''); // Add a new empty point
-        renderPlanPoints();
-    }
-    // Function to delete a specific plan point
-    function deletePlanPoint(index) {
-        planPoints.splice(index,1);
-        renderPlanPoints();
-    }
-
-    function updatePlanPoint(index,value) {
-        planPoints[index]=value;
-    }
-
-    function validatePlanPoints() {
-        const errorMessageContainer=document.querySelector('.error_top');
-        const hasEmptyPoint=planPoints.some(point => point.trim()==='');
-
-        if(hasEmptyPoint) {
-
-            if(errorMessageContainer) {
-                errorMessageContainer.style.display='block';
-                errorMessageContainer.innerHTML="<p>{{ trans('lang.add_plan_points') }}</p>";
-            }
-            window.scrollTo(0,0);
-            return false;
-        }
-
-        if(errorMessageContainer) {
-            errorMessageContainer.style.display='none';
-            errorMessageContainer.innerHTML='';
-        }
-
-        return true;
-    }
-
-    async function storeImageData() {
-        var newPhoto='';
-        try {
-            if(planImageFile!=""&&photo!=planImageFile) {
-                var oldImageRef=await storage.refFromURL(planImageFile);
-                imageBucket=oldImageRef.bucket;
-                var envBucket="<?php echo env('FIREBASE_STORAGE_BUCKET'); ?>";
-                if(imageBucket==envBucket) {
-                    await oldImageRef.delete().then(() => {
-                        console.log("Old file deleted!")
-                    }).catch((error) => {
-                        console.log("ERR File delete ===",error);
-                    });
-                } else {
-                    console.log('Bucket not matched');
-                }
-            }
-            if(photo!=planImageFile) {
-                photo=photo.replace(/^data:image\/[a-z]+;base64,/,"")
-                var uploadTask=await storageRef.child(fileName).putString(photo,'base64',{
-                    contentType: 'image/jpg'
-                });
-                var downloadURL=await uploadTask.ref.getDownloadURL();
-                newPhoto=downloadURL;
-                photo=downloadURL;
-            } else {
-                newPhoto=photo;
-            }
-        } catch(error) {
-            console.log("ERR ===",error);
-        }
-        return newPhoto;
-    }
-
-    function handleFileSelect(evt) {
-        var f=evt.target.files[0];
-        var reader=new FileReader();
-        reader.onload=(function(theFile) {
-            return function(e) {
-                var filePayload=e.target.result;
-                var val=f.name;
-                var ext=val.split('.')[1];
-                var docName=val.split('fakepath')[1];
-                var filename=(f.name).replace(/C:\\fakepath\\/i,'')
-                var timestamp=Number(new Date());
-                var filename=filename.split('.')[0]+"_"+timestamp+'.'+ext;
-                photo=filePayload;
-                fileName=filename;
-                $(".plan_image").empty();
-                $(".plan_image").append('<img class="rounded" style="width:50px" src="'+photo+
-                    '" alt="image">');
-            };
-        })(f);
-        reader.readAsDataURL(f);
-    }
+    });
 </script>
 @endsection

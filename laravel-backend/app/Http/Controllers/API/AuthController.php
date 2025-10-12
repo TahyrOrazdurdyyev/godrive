@@ -140,35 +140,51 @@ class AuthController extends Controller
     }
 
     // Update Customer Profile
-    public function updateCustomerProfile(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'full_name' => 'sometimes|required|string',
-            'phone_number' => 'sometimes|nullable|string',
-            'country_code' => 'sometimes|nullable|string',
-            'profile_pic' => 'sometimes|nullable|string',
-            'fcm_token' => 'sometimes|nullable|string',
-        ]);
+  public function updateCustomerProfile(Request $request)
+{
+    $user = $request->user();
+    
+    $validator = Validator::make($request->all(), [
+        'full_name' => 'sometimes|string|max:255',
+        'email' => 'sometimes|email|unique:users,email,' . $user->id,
+        'phone_number' => 'sometimes|string|max:20',
+        'country_code' => 'sometimes|string|max:10',
+        'profile_pic' => 'sometimes|string|max:500',
+    ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation error',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $user = $request->user();
-        $user->update($request->only([
-            'full_name', 'phone_number', 'country_code', 'profile_pic', 'fcm_token'
-        ]));
-
+    if ($validator->fails()) {
         return response()->json([
-            'success' => true,
-            'message' => 'Profile updated successfully',
-            'data' => $user
-        ]);
+            'success' => false,
+            'message' => 'Validation error',
+            'errors' => $validator->errors()
+        ], 422);
     }
+
+    // Update user fields
+    if ($request->has('full_name')) {
+        $user->full_name = $request->full_name;
+    }
+    if ($request->has('email')) {
+        $user->email = $request->email;
+    }
+    if ($request->has('phone_number')) {
+        $user->phone_number = $request->phone_number;
+    }
+    if ($request->has('country_code')) {
+        $user->country_code = $request->country_code;
+    }
+    if ($request->has('profile_pic')) {
+        $user->profile_pic = $request->profile_pic;
+    }
+
+    $user->save();
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Profile updated successfully',
+        'data' => $user
+    ]);
+} 
 
     // Update Driver Profile
     public function updateDriverProfile(Request $request)

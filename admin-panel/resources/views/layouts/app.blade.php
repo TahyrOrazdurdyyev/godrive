@@ -87,14 +87,16 @@
 <script src="{{ asset('js/mobileBUGFix.mini.js') }}"></script>
 <script src="{{ asset('js/jquery.masking.js') }}"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="https://www.gstatic.com/firebasejs/8.0.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.0.0/firebase-firestore.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.0.0/firebase-functions.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.0.0/firebase-storage.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.0.0/firebase-auth.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.0.0/firebase-database.js"></script>
-<script src="https://unpkg.com/geofirestore/dist/geofirestore.js"></script>
-<script src="https://cdn.firebase.com/libs/geofire/5.0.1/geofire.min.js"></script>
+<!-- FIREBASE SCRIPTS - COMMENTED OUT (MIGRATION TO LARAVEL) -->
+<!-- <script src="https://www.gstatic.com/firebasejs/8.0.0/firebase-app.js"></script> -->
+<!-- <script src="https://www.gstatic.com/firebasejs/8.0.0/firebase-firestore.js"></script> -->
+<!-- <script src="https://www.gstatic.com/firebasejs/8.0.0/firebase-functions.js"></script> -->
+<!-- <script src="https://www.gstatic.com/firebasejs/8.0.0/firebase-storage.js"></script> -->
+<!-- <script src="https://www.gstatic.com/firebasejs/8.0.0/firebase-auth.js"></script> -->
+<!-- <script src="https://www.gstatic.com/firebasejs/8.0.0/firebase-database.js"></script> -->
+<!-- <script src="https://unpkg.com/geofirestore/dist/geofirestore.js"></script> -->
+<!-- <script src="https://cdn.firebase.com/libs/geofire/5.0.1/geofire.min.js"></script> -->
+<!-- END FIREBASE SCRIPTS -->
 <script src="{{ asset('js/chosen.jquery.js') }}"></script>
 <script src="{{ asset('js/bootstrap-tagsinput.js') }}"></script>
 <script src="{{ asset('vendor/select2/dist/js/select2.min.js') }}"></script>
@@ -115,64 +117,78 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.1/xlsx.full.min.js"></script>
 <script type="text/javascript">
+    console.log("🔥🔥🔥 APP.BLADE.PHP VERSION: " + new Date().toISOString());
     
     var appLogo = '';
     var appFavIconLogo = '';
     var googleApiKey = '';
-    var database = firebase.firestore();
-    let globalRef = database.collection('settings').doc('global');
+    
+    // FIREBASE DATABASE CALLS COMMENTED OUT - WILL BE MIGRATED TO LARAVEL API
+    /*
     globalRef.get().then(async function (snapshots) {
         var globalSetting = snapshots.data();
         if (globalSetting.appVersion != '') {
             $(".web_version").text('V:' + globalSetting.appVersion);
         }
     });
-        var langcount=0;
-         database.collection('languages').where('isDeleted','==',false).get().then(async function(snapshotslang) {
-            if(snapshotslang.docs.length>0) {
-                snapshotslang.docs.forEach((doc) => {
-                    var data=doc.data();
-                    if(data.enable==true) {
-                        langcount++;
-                        $('#language_dropdown').append($("<option></option>").attr("value",data.id).attr("data-isrtl",data.isRtl).attr("data-code",data.code).text(data.name));
+    */
+    
+    // LANGUAGE DROPDOWN - COMMENTED OUT FOR MIGRATION
+    /*
+    var langcount=0;
+        if(snapshotslang.docs.length>0) {
+            snapshotslang.docs.forEach((doc) => {
+                var data=doc.data();
+                if(data.enable==true) {
+                    langcount++;
+                    $('#language_dropdown').append($("<option></option>").attr("value",data.id).attr("data-isrtl",data.isRtl).attr("data-code",data.code).text(data.name));
+                }
+                if(data.isDefault){
+                     if(!getCookie('setLanguage')) {
+                        setCookie('setLanguage',data.code,365);
                     }
-                    if(data.isDefault){
-                         if(!getCookie('setLanguage')) {
-                            setCookie('setLanguage',data.code,365);
-                        }
-                        setCookie('defaultLanguage',data.code,365);
+                    setCookie('defaultLanguage',data.code,365);
+                }
+            });
+            if(getCookie('setLanguage')) {
+                $('#language_dropdown option').each(function() {
+                    if($(this).attr('data-code')==getCookie('setLanguage')) {
+                        $(this).prop('selected',true);
                     }
                 });
-                if(getCookie('setLanguage')) {
-                    $('#language_dropdown option').each(function() {
-                        if($(this).attr('data-code')==getCookie('setLanguage')) {
-                            $(this).prop('selected',true); // Select the matching option
-                        }
-                    });
-                }
-                if(langcount>1) {
-                    $("#language_dropdown_box").css('visibility','visible');
-                }
-                <?php if (session()->get('locale')) { ?>
-                $("#language_dropdown").val("<?php    echo session()->get('locale'); ?>");
-                <?php } ?>
             }
-        });
+            if(langcount>1) {
+                $("#language_dropdown_box").css('visibility','visible');
+            }
+            <?php if (session()->get('locale')) { ?>
+            $("#language_dropdown").val("<?php    echo session()->get('locale'); ?>");
+            <?php } ?>
+        }
+    });
+    */
+    
+    // LOGO LOADING - COMMENTED OUT FOR MIGRATION
+    /*
     $(document).ready(async function () {
-        let globalLogoRef = database.collection('settings').doc('logo');
         globalLogoRef.get().then(async function (snapshots) {
             var globalLogoSetting = snapshots.data();
             $("#favicon").attr("href", globalLogoSetting.appFavIconLogo)
             $(".dark-logo").attr("src", globalLogoSetting.appLogo);
             $(".light-logo").attr("src", globalLogoSetting.appLogo);
         });
-        });
-        var refCurrency = database.collection('currency').where('enable', '==', true);
-        refCurrency.get().then(async function(snapshots) {
-            var currencyData = snapshots.docs[0].data();
-            $(".currentCurrency").text(currencyData.symbol);
-        });
-    var refGlobalSetting = database.collection('settings').doc('globalValue');
+    });
+    */
+    
+    // CURRENCY DATA - COMMENTED OUT FOR MIGRATION
+    /*
+    refCurrency.get().then(async function(snapshots) {
+        var currencyData = snapshots.docs[0].data();
+        $(".currentCurrency").text(currencyData.symbol);
+    });
+    */
+    
+    // GLOBAL SETTINGS - COMMENTED OUT FOR MIGRATION
+    /*
     refGlobalSetting.get().then(function (globalData) {
         var globalValue = globalData.data();
         if (globalValue && globalValue.hasOwnProperty('distanceType')) {
@@ -188,6 +204,8 @@
             $('#distanceType').val('Km');
         }
     });
+    */
+    
     async function sendNotification(fcmToken = '', title, body) {
         var checkFlag = false;
         var sendNotificationUrl = "{{ route('send-notification') }}";
@@ -343,16 +361,24 @@
         return null;
     }
     var mapType = 'ONLINE';
-    database.collection('settings').doc('globalValue').get().then(async function (snapshots) {
+    
+    // MAP TYPE LOADING - COMMENTED OUT FOR MIGRATION
+    /*
         var data = snapshots.data();
         if (data && data.selectedMapType && data.selectedMapType == "osm") {
             mapType = "OFFLINE";
         }
     });
+    */
+    
     async function loadGoogleMapsScript(callback) {
-        var globalKeySnapshot = await database.collection('settings').doc("globalKey").get();
+        // GOOGLE MAPS KEY LOADING - COMMENTED OUT FOR MIGRATION
+        /*
         var globalKeyData = globalKeySnapshot.data();
         googleMapKey = globalKeyData.googleMapKey;
+        */
+        var googleMapKey = ''; // TEMPORARY: Add your Google Maps API key here if needed
+        
         if (window.google && window.google.maps) {
                 callback();
                 return;
@@ -395,16 +421,15 @@
     };
     const GeolocationErrorCallback = (error) => {
         console.log('Error: You denied for your default Geolocation',error.message);
-        setCookie('default_latitude', '23.022505', 365);
-        setCookie('default_longitude','72.571365', 365);
+        setCookie('default_latitude', '37.9601', 365);
+        setCookie('default_longitude','58.3261', 365);
     };
     
     loadGoogleMapsScript();
     
-    //On delete item delete image also from bucket general code
+    // IMAGE DELETION FUNCTIONS - COMMENTED OUT FOR MIGRATION
+    /*
     const deleteDocumentWithImage = async (collection, id, singleImageField, arrayImageField) => {
-        // Reference to the Firestore document
-        const docRef = database.collection(collection).doc(id);
         try {
             const doc = await docRef.get();
             if (!doc.exists) {
@@ -412,42 +437,38 @@
                 return;
             }
             const data = doc.data();
-            // Handle single image deletion
-                    // Deleting single image field
-                    if (singleImageField) {
-                    if (Array.isArray(singleImageField)) {
-                        for (const field of singleImageField) {
-                            const imageUrl = data[field];
-                            if (imageUrl) await deleteImageFromBucket(imageUrl);
-                        }
-                    } else {
-                        const imageUrl = data[singleImageField];
+            if (singleImageField) {
+                if (Array.isArray(singleImageField)) {
+                    for (const field of singleImageField) {
+                        const imageUrl = data[field];
                         if (imageUrl) await deleteImageFromBucket(imageUrl);
                     }
+                } else {
+                    const imageUrl = data[singleImageField];
+                    if (imageUrl) await deleteImageFromBucket(imageUrl);
                 }
-                // Deleting array image field
-                if (arrayImageField) {
-                    if (Array.isArray(arrayImageField)) {
-                        for (const field of arrayImageField) {
-                            const arrayImages = data[field];
-                            if (arrayImages && Array.isArray(arrayImages)) {
-                                for (const imageUrl of arrayImages) {
-                                    if (imageUrl) await deleteImageFromBucket(imageUrl);
-                                }
-                            }
-                        }
-                    } else {
-                        const arrayImages = data[arrayImageField];
+            }
+            if (arrayImageField) {
+                if (Array.isArray(arrayImageField)) {
+                    for (const field of arrayImageField) {
+                        const arrayImages = data[field];
                         if (arrayImages && Array.isArray(arrayImages)) {
                             for (const imageUrl of arrayImages) {
                                 if (imageUrl) await deleteImageFromBucket(imageUrl);
                             }
                         }
                     }
+                } else {
+                    const arrayImages = data[arrayImageField];
+                    if (arrayImages && Array.isArray(arrayImages)) {
+                        for (const imageUrl of arrayImages) {
+                            if (imageUrl) await deleteImageFromBucket(imageUrl);
+                        }
+                    }
                 }
-            // Handle variant images deletion
-            const item_attribute = data.item_attribute || {};  // Access item_attribute
-            const variants = item_attribute.variants || [];    // Access variants array inside item_attribute
+            }
+            const item_attribute = data.item_attribute || {};
+            const variants = item_attribute.variants || [];
             if (variants.length > 0) {
                 for (let i = 0; i < variants.length; i++) {
                     const variantImageUrl = variants[i].variant_image;
@@ -456,36 +477,37 @@
                     }
                 }
             }
-            // Optionally delete the Firestore document after image deletion
             await docRef.delete();
             console.log("Document and images deleted successfully.");
         } catch (error) {
             console.error("Error deleting document and images:", error);
         }
     };
+    /*
     const deleteImageFromBucket = async (imageUrl) => {
         try {
-            const storageRef = firebase.storage().ref();
-            // Check if the imageUrl is a full URL or just a child path
+//             const storageRef = firebase.storage().ref();
             let oldImageUrlRef;
             if (imageUrl.includes('https://')) {
-                // Full URL
                 oldImageUrlRef = storageRef.storage.refFromURL(imageUrl);
             } else {
-                // Child path, use ref instead of refFromURL
                 oldImageUrlRef = storageRef.storage.ref(imageUrl);
             }
             var envBucket = "<?php echo env('FIREBASE_STORAGE_BUCKET'); ?>";
             var imageBucket = oldImageUrlRef.bucket;
-            // Check if the bucket name matches
             if (imageBucket === envBucket) {
-                // Delete the image
                 await oldImageUrlRef.delete();
                 console.log("Image deleted successfully.");
             }
         } catch (error) {
         }
     };
+    */
+</script>
+<script>
+    // Force cache clear
+    var scriptVersion = '<?php echo time(); ?>';
+    console.log('Script version:', scriptVersion);
 </script>
 @yield('scripts')
 </body>

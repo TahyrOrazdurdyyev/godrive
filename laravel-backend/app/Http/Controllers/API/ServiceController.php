@@ -170,15 +170,15 @@ class ServiceController extends Controller
     }
 
     // Get enabled banners
-    public function getBanners()
-    {
-        $banners = Banner::enabled()->ordered()->get();
+  public function getBanners()
+{
+    $banners = Banner::enabled()->ordered()->get();
 
-        return response()->json([
-            'success' => true,
-            'data' => $banners
-        ]);
-    }
+    return response()->json([
+        'success' => true,
+        'data' => $banners
+    ]);
+} 
 
     // Validate coupon
     public function validateCoupon(Request $request)
@@ -258,6 +258,15 @@ class ServiceController extends Controller
         }
         
         return $totalMinutes;
+    }
+        public function getLanguages()
+    {
+        $languages = \App\Models\Language::enabled()->orderBy('is_default', 'desc')->orderBy('name')->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $languages
+        ]);
     }
 }
 

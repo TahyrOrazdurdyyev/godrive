@@ -10,6 +10,8 @@ class Service extends Model
 {
     use HasFactory, SoftDeletes;
 
+   
+
     protected $fillable = [
         'title',
         'image',
@@ -32,7 +34,6 @@ class Service extends Model
     ];
 
     protected $casts = [
-        'title' => 'array',
         'enable' => 'boolean',
         'offer_rate' => 'boolean',
         'intercity_type' => 'boolean',
@@ -76,24 +77,24 @@ class Service extends Model
         return $query->where('intercity_type', true);
     }
 
-    // Accessors
-    public function getTitleAttribute($value)
-    {
-        $titles = json_decode($value, true);
-        if (is_array($titles)) {
-            // Return English title by default, or first available
-            return $titles['en'] ?? reset($titles);
-        }
-        return $value;
-    }
+    // Accessors and Mutators are commented out to return title as raw JSON string
+    // Mobile app will handle JSON parsing
+    
+    // public function getTitleAttribute($value)
+    // {
+    //     $titles = json_decode($value, true);
+    //     if (is_array($titles)) {
+    //         return $titles['en'] ?? reset($titles);
+    //     }
+    //     return $value;
+    // }
 
-    // Mutators
-    public function setTitleAttribute($value)
-    {
-        if (is_string($value)) {
-            $this->attributes['title'] = json_encode(['en' => $value]);
-        } else {
-            $this->attributes['title'] = json_encode($value);
-        }
-    }
+    // public function setTitleAttribute($value)
+    // {
+    //     if (is_string($value)) {
+    //         $this->attributes['title'] = json_encode(['en' => $value]);
+    //     } else {
+    //         $this->attributes['title'] = json_encode($value);
+    //     }
+    // }
 }

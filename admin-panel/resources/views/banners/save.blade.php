@@ -2,238 +2,134 @@
 
 @section('content')
 <div class="page-wrapper">
-    <div class="row page-titles">
-        <div class="col-md-5 align-self-center">
-            <h3 class="text-themecolor">{{trans('lang.banner_plural')}}</h3>
+    <div class="page-content">
+        <div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
+            <div class="breadcrumb-title pe-3">Banners</div>
+            <div class="ps-3">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0 p-0">
+                        <li class="breadcrumb-item"><a href="javascript:;"><i class="bx bx-home-alt"></i></a></li>
+                        <li class="breadcrumb-item active" aria-current="page">{{ $id == 0 ? 'Add' : 'Edit' }} Banner</li>
+                    </ol>
+                </nav>
+            </div>
         </div>
 
-        <div class="col-md-7 align-self-center">
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{{url('/dashboard')}}">{{trans('lang.dashboard')}}</a></li>
-                <li class="breadcrumb-item"><a href="{!! route('banners') !!}">{{trans('lang.banner_plural')}}</a>
-                </li>
-                <li class="breadcrumb-item active">{{ $id == 0? trans('lang.banner_create') :
-                    trans('lang.banner_edit')}}
-                </li>
-            </ol>
-        </div>
-    </div>
-    <div class="container-fluid">
-        <div class="card pb-4">
-
-            <div class="card-body">
-
-                <div class="error_top"></div>
-
-                <div class="row restaurant_payout_create">
-                    <div class="restaurant_payout_create-inner">
-                        <fieldset>
-                            <legend>{{trans('lang.banner_details')}}</legend>
-
-                            <div class="form-group row width-50">
-                                <label class="col-3 control-label">{{trans('lang.banner_order')}}<span
-                                            class="required-field"></span></label>
-                                <div class="col-7">
-                                    <input type="number" class="form-control banner_order" min="0">
+        <div class="row">
+            <div class="col-12 col-lg-8">
+                <div class="card">
+                    <div class="card-header px-4 py-3">
+                        <h5 class="mb-0">{{ $id == 0 ? 'Add' : 'Edit' }} Banner</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <form id="bannerForm" enctype="multipart/form-data">
+                            @csrf
+                            <input type="hidden" name="id" value="{{ $id }}">
+                            
+                            <div class="row mb-3">
+                                <label for="position" class="col-sm-3 col-form-label">Position</label>
+                                <div class="col-sm-9">
+                                    <input type="number" class="form-control" id="position" name="position" 
+                                           value="{{ $banner ? $banner->position : '' }}" required min="1">
                                 </div>
                             </div>
 
-
-                            <div class="form-group row width-100">
-                                <label class="col-3 control-label">{{trans('lang.image')}}<span
-                                            class="required-field"></span></label>
-                                <div class="col-7">
-                                    <input type="file" onChange="handleFileSelect(event)" class="form-control image">
-                                    <div class="placeholder_img_thumb banner_image"></div>
-                                    <div id="uploding_image"></div>
+                            <div class="row mb-3">
+                                <label for="image" class="col-sm-3 col-form-label">Image</label>
+                                <div class="col-sm-9">
+                                    <input type="file" class="form-control" id="image" name="image" accept="image/*" {{ $id == 0 ? 'required' : '' }}>
+                                    @if($banner && $banner->image)
+                                        <div class="mt-2">
+                                            <img src="{{ $banner->image }}" alt="Current banner" style="max-width: 200px; height: auto;">
+                                        </div>
+                                    @endif
+                                    <div id="imagePreview" class="mt-2" style="display: none;">
+                                        <img id="previewImg" src="" alt="Preview" style="max-width: 200px; height: auto;">
+                                    </div>
                                 </div>
                             </div>
 
-                            <div class="form-group row width-100">
-                                <div class="form-check">
-                                    <input type="checkbox" class="banner_active" id="banner_active">
-                                    <label class="col-3 control-label"
-                                           for="banner_active">{{trans('lang.enable')}}</label>
+                            <div class="row mb-3">
+                                <label for="enable" class="col-sm-3 col-form-label">Enable</label>
+                                <div class="col-sm-9">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="enable" name="enable" 
+                                               {{ ($banner && $banner->enable) ? 'checked' : '' }}>
+                                        <label class="form-check-label" for="enable">
+                                            Enable Banner
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
-                        </fieldset>
+
+                            <div class="row">
+                                <div class="col-sm-9 offset-sm-3">
+                                    <button type="submit" class="btn btn-primary px-4">Save</button>
+                                    <a href="{{ route('banners') }}" class="btn btn-secondary px-4 ms-2">Cancel</a>
+                                </div>
+                            </div>
+                        </form>
                     </div>
                 </div>
-
-                <div class="form-group col-12 text-center btm-btn">
-                    <button type="button" class="btn btn-primary  edit-setting-btn"><i
-                                class="fa fa-save"></i> {{ trans('lang.save')}}
-                    </button>
-                    <a href="{!! route('banners') !!}" class="btn btn-default"><i
-                                class="fa fa-undo"></i>{{ trans('lang.cancel')}}</a>
-                </div>
-
             </div>
-
         </div>
     </div>
-
 </div>
-
 @endsection
 
 @section('scripts')
 <script>
-    var database = firebase.firestore();
-    var storageRef = firebase.storage().ref('images');
-    var storage = firebase.storage();
-    var requestId = "{{$id}}";
-    var photo = '';
-    var fileName = '';
-    var bannerImagePath = '';
-    var id = (requestId == '0') ? database.collection("tmp").doc().id : requestId;
+$(document).ready(function() {
+    console.log('Document ready');
+    alert('Форма найдена: ' + ($('#bannerForm').length > 0));
+    
+    // Image preview
+    $('#image').change(function() {
+        const file = this.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                $('#previewImg').attr('src', e.target.result);
+                $('#imagePreview').show();
+            }
+            reader.readAsDataURL(file);
+        } else {
+            $('#imagePreview').hide();
+        }
+    });
 
-    $(document).ready(function () {
-        $('.banner_sub_menu li').each(function () {
-            $('.banner_sub_menu li').each(function () {
-                var url = $(this).find('a').attr('href');
-                if (url == document.referrer) {
-                    $(this).find('a').addClass('active');
-                    $('.banner_menu').addClass('active').attr('aria-expanded', true);
+    // Form submission
+    $('#bannerForm').submit(function(e) {
+        alert('Форма отправляется!');
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const submitBtn = $(this).find('button[type="submit"]');
+        const originalText = submitBtn.text();
+        submitBtn.prop('disabled', true).text('Saving...');
+        
+        $.ajax({
+            url: '{{ route("banners.store") }}',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                alert('Успех: ' + JSON.stringify(response));
+                if (response.success) {
+                    if (response.redirect) {
+                        window.location.href = response.redirect;
+                    }
                 }
-                $('.banner_sub_menu').addClass('in').attr('aria-expanded', true);
-            });
-            if (requestId != '0') {
-                jQuery("#overlay").show();
-                var ref = database.collection('banner').where("id", "==", id);
-                ref.get().then(async function (snapshots) {
-                    var data = snapshots.docs[0].data();
-                    $(".banner_order").val(data.position);
-                    if (data.enable) {
-                        $('.banner_active').prop('checked', true);
-                    }
-                    if (data.image) {
-                        photo = data.image;
-                        bannerImagePath = data.image;
-                        $(".banner_image").empty();
-                        $(".banner_image").append('<span class="image-item"><span class="remove-btn"><i class="fa fa-remove"></i></span><img class="rounded" style="width:50px" src="' + data.image + '" alt="image"></span>');
-                    }
-                    jQuery("#overlay").hide();
-                })
+            },
+            error: function(xhr) {
+                alert('Ошибка: ' + xhr.responseText);
+            },
+            complete: function() {
+                submitBtn.prop('disabled', false).text(originalText);
             }
         });
     });
-
-    $(".edit-setting-btn").click(function () {
-
-        var enable = $(".banner_active").is(':checked') ? true : false;
-        var order = $(".banner_order").val();
-        if (order == '' || order <= 0) {
-            $(".error_top").show();
-            $(".error_top").html("");
-            $(".error_top").append("<p>{{trans('lang.banner_order_error')}}</p>");
-            window.scrollTo(0, 0);
-        } else if (photo == '') {
-            $(".error_top").show();
-            $(".error_top").html("");
-            $(".error_top").append("<p>{{trans('lang.banner_image_help')}}</p>");
-            window.scrollTo(0, 0);
-        } else {
-            jQuery("#overlay").show();
-            storeImageData().then(IMG => {
-                requestId == '0'
-                    ? (database.collection('banner').doc(id).set({
-                        'id': id,
-                        'enable': enable,
-                        'image': IMG,
-                        'isDeleted': false,
-                        'position': order
-                    }).then(function (result) {
-                        window.location.href = '{{ route("banners")}}';
-                    }).catch(function (error) {
-                        jQuery("#overlay").hide();
-                        $(".error_top").show();
-                        $(".error_top").html("");
-                        $(".error_top").append("<p>" + error + "</p>");
-                    }))
-                    : (database.collection('banner').doc(id).update({
-                        'id': id,
-                        'enable': enable,
-                        'image': IMG,
-                        'isDeleted': false,
-                        'position': order
-                    }).then(function (result) {
-                        window.location.href = '{{ route("banners")}}';
-                    }).catch(function (error) {
-                        jQuery("#overlay").hide();
-                        $(".error_top").show();
-                        $(".error_top").html("");
-                        $(".error_top").append("<p>" + error + "</p>");
-                    }))
-            }).catch(err => {
-                jQuery("#overlay").hide();
-                $(".error_top").show();
-                $(".error_top").html("");
-                $(".error_top").append("<p>" + err + "</p>");
-                window.scrollTo(0, 0);
-            });
-        }
-    });
-
-    async function storeImageData() {
-        var newPhoto = '';
-        try {
-            if (bannerImagePath != "" && photo != bannerImagePath) {
-                var bannerOldImageRef = await storage.refFromURL(bannerImagePath);
-                imageBucket= bannerOldImageRef.bucket;
-                var envBucket = "<?php echo env('FIREBASE_STORAGE_BUCKET'); ?>";
-
-                if (imageBucket == envBucket) {
-
-                await bannerOldImageRef.delete().then(() => {
-                    console.log("Old file deleted!")
-                }).catch((error) => {
-                    console.log("ERR File delete ===", error);
-                });
-                }else{
-                        console.log('Bucket not matched');
-                  }
-
-            }
-            if (photo != bannerImagePath) {
-                photo = photo.replace(/^data:image\/[a-z]+;base64,/, "")
-                var uploadTask = await storageRef.child(fileName).putString(photo, 'base64', {contentType: 'image/jpg'});
-                var downloadURL = await uploadTask.ref.getDownloadURL();
-                newPhoto = downloadURL;
-                photo = downloadURL;
-            } else {
-                newPhoto = photo;
-            }
-        } catch (error) {
-            console.log("ERR ===", error);
-        }
-        return newPhoto;
-    }
-
-    function handleFileSelect(evt) {
-        var f = evt.target.files[0];
-        var reader = new FileReader();
-        reader.onload = (function (theFile) {
-            return function (e) {
-                var filePayload = e.target.result;
-                var val = f.name;
-                var ext = val.split('.')[1];
-                var docName = val.split('fakepath')[1];
-                var filename = (f.name).replace(/C:\\fakepath\\/i, '')
-                var timestamp = Number(new Date());
-                var filename = filename.split('.')[0] + "_" + timestamp + '.' + ext;
-                photo = filePayload;
-                fileName = filename;
-                $(".banner_image").empty();
-                $(".banner_image").append('<span class="image-item"><span class="remove-btn"><i class="fa fa-remove"></i></span><img class="rounded" style="width:50px" src="' + filePayload + '" alt="image"></span>');
-            };
-        })(f);
-        reader.readAsDataURL(f);
-    }
-
-    $(document).on('click', '.remove-btn', function () {
-        $(".banner_image").empty();
-        photo = '';
-    });
+});
 </script>
 @endsection

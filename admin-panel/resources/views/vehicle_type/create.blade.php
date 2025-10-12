@@ -29,12 +29,23 @@
             <div class="restaurant_payout_create-inner">
                 <fieldset>
                     <legend>{{trans('lang.vehicle_type')}}</legend>
-                        <div class="tab-content" id="language-contents">
+
+                        <!-- Image Upload Section -->
+                        <div class="form-group row width-100">
+                            <label class="col-3 control-label">{{trans('lang.vehicle_image')}}</label>
+                            <div class="col-7">
+                                <input type="file" id="vehicle_image" accept="image/*" class="form-control">
+                                <div class="placeholder_img_thumb vehicle_image"></div>
+                                <div id="uploding_image_vehicle"></div>
                             </div>
+                        </div>
+
+                        <div class="tab-content" id="language-contents">
+                        </div>
 
                     <div class="form-group row width-100">
                         <div class="form-check">
-                            <input type="checkbox" class="vehicle_active" id="active">
+                            <input type="checkbox" class="vehicle_active" id="active" checked>
                             <label class="col-3 control-label" for="active">{{trans('lang.enable')}}</label>
                         </div>
                     </div>
@@ -59,92 +70,139 @@
 
 <script>
 
-    var database=firebase.firestore();
-    var photo="";
+    var photo = "";
 
     $(document).ready(function() {
         fetchLanguages().then(createLanguageTabs);
 
         $('.vehicle_type_menu').addClass('active');
 
+        // Image upload handler
+        $("#vehicle_image").change(function() {
+            var file = this.files[0];
+            if (file) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    photo = e.target.result;
+                    $(".vehicle_image").html('<img src="' + e.target.result + '" style="max-width:200px; max-height:200px;">');
+                }
+                reader.readAsDataURL(file);
+            }
+        });
     });
 
     $(".save-setting-btn").click(function() {
 
-        var names=[];
+        var names = [];
 
         $("[id^='vehicle-name-']").each(function() {
-            var languageCode=$(this).attr('id').replace('vehicle-name-','');
-            var nameValue=$(this).val();
+            var languageCode = $(this).attr('id').replace('vehicle-name-', '');
+            var nameValue = $(this).val();
 
             names.push({
                 name: nameValue,
                 type: languageCode
             });
         });
-        var isEnglishNameValid=names.some(function(nameObj) {
-            return nameObj.type==='en'&&nameObj.name.trim()!=='';
+
+        var isEnglishNameValid = names.some(function(nameObj) {
+            return nameObj.type === 'en' && nameObj.name.trim() !== '';
         });
 
-        var enable=false;
+        var enable = false;
 
-        if($(".vehicle_active").is(':checked')) {
-            enable=true;
+        if ($(".vehicle_active").is(':checked')) {
+            enable = true;
         }
 
-        var id=database.collection("tmp").doc().id;
-
-        if(!isEnglishNameValid) {
+        if (!isEnglishNameValid) {
             $(".error_top").show();
             $(".error_top").html("");
             $(".error_top").append("<p>{{trans('lang.vehicle_name_en_required')}}</p>");
-            window.scrollTo(0,0);
+            window.scrollTo(0, 0);
+        } else if (!photo) {
+            $(".error_top").show();
+            $(".error_top").html("");
+            $(".error_top").append("<p>Please upload a vehicle image</p>");
+            window.scrollTo(0, 0);
         } else {
             jQuery("#overlay").show();
 
-            database.collection('vehicle_type').doc(id).set({
-                'name': names,
-                'id': id,
-                'enable': enable,
-            }).then(function(result) {
-                jQuery("#overlay").hide();
+            const formData = {
+                title: JSON.stringify(names),
+                image: photo,
+                enable: enable
+            };
 
-                window.location.href='{{ route("vehicle-type")}}';
-            }).catch(function(error) {
+            fetch('http://185.10.16.248:8080/api/v1/vehicle-types', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                jQuery("#overlay").hide();
+                if (data.success) {
+                    alert('Vehicle Type created successfully!');
+                    window.location.href = '{{ route("vehicle-type") }}';
+                } else {
+                    $(".error_top").show();
+                    $(".error_top").html("");
+                    $(".error_top").append("<p>" + data.message + "</p>");
+                }
+            })
+            .catch(error => {
+                jQuery("#overlay").hide();
                 $(".error_top").show();
                 $(".error_top").html("");
-                $(".error_top").append("<p>"+error+"</p>");
+                $(".error_top").append("<p>Error: " + error + "</p>");
             });
         }
     });
+
     async function fetchLanguages() {
-        const languagesRef=database.collection('languages').where('isDeleted','==',false);
-        const snapshot=await languagesRef.get();
-        const languages=[];
-        snapshot.forEach(doc => {
-            languages.push(doc.data());
-        });
-        return languages;
-    }
-    function createLanguageTabs(languages) {
-        const tabsContainer=document.getElementById('language-tabs');
-        const contentsContainer=document.getElementById('language-contents');
-
-        tabsContainer.innerHTML='';
-        contentsContainer.innerHTML='';
-
-        const defaultLanguage=languages.find(language => language.isDefault);
-        const otherLanguages=languages.filter(language => !language.isDefault);
-        otherLanguages.sort((a,b) => a.name.localeCompare(b.name));
-        const sortedLanguages=[defaultLanguage,...otherLanguages];
-        sortedLanguages.forEach((language,index) => {
-            var defaultClass='';
-            if(language.isDefault) {
-                defaultClass='{{trans("lang.default")}}';
+        console.log("🔥 fetchLanguages called");
+        try {
+            const response = await fetch('http://185.10.16.248/api/v1/languages');
+            const result = await response.json();
+            console.log("🔥 Languages fetched:", result);
+            if (result.success) {
+                return result.data.map(lang => ({
+                    code: lang.code,
+                    name: lang.name,
+                    isDefault: lang.is_default,
+                    enable: lang.enable
+                }));
             }
-            const tab=document.createElement('li');
+            return [];
+        } catch (error) {
+            console.error('Error fetching languages:', error);
+            return [];
+        }
+    }
+
+    function createLanguageTabs(languages) {
+        console.log("🔥 createLanguageTabs called with:", languages);
+        const tabsContainer = document.getElementById('language-tabs');
+        const contentsContainer = document.getElementById('language-contents');
+
+        tabsContainer.innerHTML = '';
+        contentsContainer.innerHTML = '';
+
+        const defaultLanguage = languages.find(language => language.isDefault);
+        const otherLanguages = languages.filter(language => !language.isDefault);
+        otherLanguages.sort((a, b) => a.name.localeCompare(b.name));
+        const sortedLanguages = [defaultLanguage, ...otherLanguages];
+        sortedLanguages.forEach((language, index) => {
+            var defaultClass = '';
+            if (language.isDefault) {
+                defaultClass = '{{trans("lang.default")}}';
+            }
+            const tab = document.createElement('li');
             tab.classList.add('nav-item');
-            tab.innerHTML=`
+            tab.innerHTML = `
             <a class="nav-link ${index===0? 'active':''}" id="tab-${language.code}" data-bs-toggle="tab" href="#content-${language.code}" role="tab" aria-selected="${index===0}">
                 ${language.name} (${language.code.toUpperCase()})
                 <span class="badge badge-success ml-2">${defaultClass}</span>
@@ -152,14 +210,14 @@
         `;
             tabsContainer.appendChild(tab);
 
-            const content=document.createElement('div');
-            content.classList.add('tab-pane','fade');
-            if(index===0) {
-                content.classList.add('show','active');
+            const content = document.createElement('div');
+            content.classList.add('tab-pane', 'fade');
+            if (index === 0) {
+                content.classList.add('show', 'active');
             }
-            content.id=`content-${language.code}`; // Ensure this matches the tab link's href
-            content.role="tabpanel";
-            content.innerHTML=`
+            content.id = `content-${language.code}`;
+            content.role = "tabpanel";
+            content.innerHTML = `
             <div class="form-group row width-100">
                 <label class="col-3 control-label" for="vehicle-name-${language.code}">{{trans('lang.vehicle_name')}} (${language.code.toUpperCase()})<span class="required-field"></span></label>
                 <div class="col-7">
@@ -171,13 +229,13 @@
             contentsContainer.appendChild(content);
         });
 
-        const triggerTabList=document.querySelectorAll('#language-tabs a');
+        const triggerTabList = document.querySelectorAll('#language-tabs a');
         triggerTabList.forEach(tab => {
-            tab.addEventListener('click',function(event) {
+            tab.addEventListener('click', function(event) {
                 event.preventDefault();
 
                 document.querySelectorAll('.tab-pane').forEach(function(pane) {
-                    pane.classList.remove('active','show');
+                    pane.classList.remove('active', 'show');
                 });
 
                 document.querySelectorAll('.nav-link').forEach(function(navTab) {
@@ -185,10 +243,10 @@
                 });
 
                 this.classList.add('active');
-                const target=this.getAttribute('href');
-                const targetPane=document.querySelector(target);
-                if(targetPane) {
-                    targetPane.classList.add('active','show');
+                const target = this.getAttribute('href');
+                const targetPane = document.querySelector(target);
+                if (targetPane) {
+                    targetPane.classList.add('active', 'show');
                 }
             });
         });

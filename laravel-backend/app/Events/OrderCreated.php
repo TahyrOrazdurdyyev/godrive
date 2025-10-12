@@ -24,10 +24,13 @@ class OrderCreated implements ShouldBroadcast
 
     public function broadcastOn()
     {
-        return [
-            new Channel('drivers'),
-            new Channel('zone.' . $this->order->zone_id),
-        ];
+        $channels = [new Channel('drivers')];
+        
+        if ($this->order->zone_id) {
+            $channels[] = new Channel('zone.' . $this->order->zone_id);
+        }
+        
+        return $channels;
     }
 
     public function broadcastAs()
