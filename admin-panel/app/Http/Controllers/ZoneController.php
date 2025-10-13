@@ -38,15 +38,25 @@ class ZoneController extends Controller
 
             $coordinates = $validated['coordinates'];
             
-            \DB::connection('mysql_main')->table('zones')->insert([
-                'name' => $validated['name'],
-                'coordinates' => $coordinates,
-                'enable' => $request->input('enable', false) ? 1 : 0,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
+\DB::connection('mysql_main')->table('zones')->insert([
+    'name' => $validated['name'],
+    'coordinates' => $coordinates,
+    'area' => $coordinates,  // ← ДОБАВЬ ЭТУ СТРОКУ
+    'enable' => $request->input('enable', false) ? 1 : 0,
+    'created_at' => now(),
+    'updated_at' => now(),
+]);
             return response()->json(['success' => true, 'message' => 'Zone created successfully']);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+        public function destroy($id)
+    {
+        try {
+            \DB::connection('mysql_main')->table('zones')->where('id', $id)->delete();
+
+            return response()->json(['success' => true, 'message' => 'Zone deleted successfully']);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }

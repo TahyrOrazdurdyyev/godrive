@@ -464,6 +464,7 @@ Route::middleware(['permission:zone,zone.list'])->group(function () {
 Route::middleware(['permission:zone,zone.create'])->group(function () {
     Route::get('/zone/create', [App\Http\Controllers\ZoneController::class, 'create'])->name('zone.create');
     Route::post("/zone/store", [App\Http\Controllers\ZoneController::class, "store"])->name("zone.store");
+    Route::post("/zone/delete/{id}", [App\Http\Controllers\ZoneController::class, "destroy"])->name("zone.destroy");
 });
 Route::middleware(['permission:zone,zone.edit'])->group(function () {
     Route::get('/zone/edit/{id}', [App\Http\Controllers\ZoneController::class, 'edit'])->name('zone.edit');

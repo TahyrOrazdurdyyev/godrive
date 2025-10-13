@@ -9,20 +9,10 @@ use App\Models\Banner;
 use App\Models\Coupon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 
 class ServiceController extends Controller
 {
-    // Get all enabled services
-    public function getServices()
-    {
-        $services = Service::enabled()->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => $services
-        ]);
-    }
-
     // Get city services (non-intercity)
     public function getCityServices()
     {
@@ -125,16 +115,6 @@ class ServiceController extends Controller
         ]);
     }
 
-    // Get all enabled zones
-    public function getZones()
-    {
-        $zones = Zone::enabled()->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => $zones
-        ]);
-    }
 
     // Find zone by coordinates
     public function findZone(Request $request)
@@ -170,15 +150,15 @@ class ServiceController extends Controller
     }
 
     // Get enabled banners
-  public function getBanners()
-{
-    $banners = Banner::enabled()->ordered()->get();
+    public function getBanners()
+    {
+        $banners = Banner::enabled()->ordered()->get();
 
-    return response()->json([
-        'success' => true,
-        'data' => $banners
-    ]);
-} 
+        return response()->json([
+            'success' => true,
+            'data' => $banners
+        ]);
+    } 
 
     // Validate coupon
     public function validateCoupon(Request $request)
@@ -240,6 +220,97 @@ class ServiceController extends Controller
         ]);
     }
 
+    // Get languages
+    public function getLanguages()
+    {
+        $languages = \App\Models\Language::enabled()->orderBy('is_default', 'desc')->orderBy('name')->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $languages
+        ]);
+    }
+
+    /**
+     * Get all zones
+     * GET /api/v1/zones
+     */
+public function getZones()
+{
+    try {
+        $zones = DB::connection('mysql_main')->table('zones')
+            ->where('enable', 1)
+            ->whereNull('deleted_at')
+            ->select('id', 'name', 'area', 'coordinates', 'enable', 'created_at', 'updated_at')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        // Decode JSON strings to arrays
+        $zones = $zones->map(function($zone) {
+            if ($zone->area) {
+                $zone->area = json_decode($zone->area);
+            }
+            if ($zone->coordinates) {
+                $zone->coordinates = json_decode($zone->coordinates);
+            }
+            return $zone;
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $zones
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Error: ' . $e->getMessage()
+        ], 500);
+    }
+}
+    /**
+     * Get all vehicle types (services)
+     * GET /api/v1/vehicle-types
+     */
+    public function getServices()
+    {
+        try {
+            $services = DB::connection('mysql_main')->table('services')
+                ->where('enable', 1)
+                ->whereNull('deleted_at')
+                ->orderBy('id', 'asc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $services
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get all driver rules
+     * GET /api/v1/driver-rules
+     */
+    public function getDriverRules()
+    {
+        try {
+            return response()->json([
+                'success' => true,
+                'data' => []
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     // Private helper method
     private function parseDuration($duration)
     {
@@ -259,14 +330,4 @@ class ServiceController extends Controller
         
         return $totalMinutes;
     }
-        public function getLanguages()
-    {
-        $languages = \App\Models\Language::enabled()->orderBy('is_default', 'desc')->orderBy('name')->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => $languages
-        ]);
-    }
 }
-

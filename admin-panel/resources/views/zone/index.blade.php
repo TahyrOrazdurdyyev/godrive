@@ -210,8 +210,8 @@
             html = html + '<td><label class="switch"><input type="checkbox" checked id="' + val.id + '" name="isSwitch"><span class="slider round"></span></label></td>';
         } else {
             html = html + '<td><label class="switch"><input type="checkbox" id="' + val.id + '" name="isSwitch"><span class="slider round"></span></label></td>';
-        }
-        html = html + '<td class="action-btn"><a href="' + route1 + '"><i class="mdi mdi-lead-pencil"></i></a>';
+        } 
+html = html + '<td class="action-btn"><a href="' + route1 + '"><i class="mdi mdi-lead-pencil"></i></a><a href="javascript:void(0)" class="delete-zone" data-id="' + val.id + '"><i class="mdi mdi-delete"></i></a></td>';
         if (checkDeletePermission) {
 
             html = html + '<a id="' + val.id + '" name="zone-delete" class="delete-btn" href="javascript:void(0)"><i class="mdi mdi-delete"></i></a>';
@@ -269,7 +269,35 @@
             return false;
         }
     });
-
+// Delete zone
+$(document).on('click', '.delete-zone', function() {
+    var zoneId = $(this).data('id');
+    
+    if(confirm('Are you sure you want to delete this zone?')) {
+        jQuery("#overlay").show();
+        
+        $.ajax({
+            url: '/zone/delete/' + zoneId,
+            type: 'POST',
+            data: {
+                _token: '{{ csrf_token() }}'
+            },
+            success: function(response) {
+                jQuery("#overlay").hide();
+                if(response.success) {
+                    alert('Zone deleted successfully');
+                    location.reload();
+                } else {
+                    alert('Error: ' + response.message);
+                }
+            },
+            error: function(xhr) {
+                jQuery("#overlay").hide();
+                alert('Error deleting zone');
+            }
+        });
+    }
+});
 </script>
 
 @endsection
