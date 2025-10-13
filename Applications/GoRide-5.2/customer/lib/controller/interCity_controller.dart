@@ -12,6 +12,7 @@ import 'package:customer/model/zone_model.dart';
 import 'package:customer/themes/app_colors.dart';
 import 'package:customer/utils/Preferences.dart';
 import 'package:customer/utils/fire_store_utils.dart';
+import 'package:customer/utils/service_api.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -108,21 +109,22 @@ class InterCityController extends GetxController {
   RxString selectedPaymentMethod = "".obs;
 
   getPaymentData() async {
-    // DEMO: Load static payment and zone data
-    await Future.delayed(Duration(milliseconds: 300)); // Simulate loading
-    
-    zoneList.value = [
-      ZoneModel(
-        id: "zone_1",
-        name: [LanguageName(name: "Downtown Zone", type: "en")],
-        publish: true,
-      ),
-      ZoneModel(
-        id: "zone_2", 
-        name: [LanguageName(name: "Airport Zone", type: "en")],
-        publish: true,
-      ),
-    ];
+    // Load zones from Laravel API
+    try {
+      final response = await ServiceApi.getZones();
+      
+      if (response['success'] == true && response['data'] != null) {
+        final List<dynamic> zonesData = response['data'];
+        zoneList.value = zonesData.map((json) => ZoneModel.fromJson(json)).toList();
+        print('🔥 InterCity: Loaded ${zoneList.length} zones from API');
+      } else {
+        print('❌ InterCity: Failed to load zones');
+        zoneList.value = [];
+      }
+    } catch (e) {
+      print('❌ InterCity: Error loading zones: $e');
+      zoneList.value = [];
+    }
     
     paymentModel.value = PaymentModel();
   }

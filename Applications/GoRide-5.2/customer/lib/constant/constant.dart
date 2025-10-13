@@ -22,6 +22,7 @@ import 'package:customer/model/language_terms_condition.dart';
 import 'package:customer/model/language_title.dart';
 import 'package:customer/model/map_model.dart';
 import 'package:customer/model/tax_model.dart';
+import 'package:customer/model/zone_model.dart';
 import 'package:customer/themes/app_colors.dart';
 import 'package:customer/utils/Preferences.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -146,15 +147,15 @@ class Constant {
     }
   }
 
-  static bool isPointInPolygon(LatLng point, List<GeoPoint> polygon) {
+  static bool isPointInPolygon(LatLng point, List<LatLon> polygon) {
     int crossings = 0;
     for (int i = 0; i < polygon.length; i++) {
       int next = (i + 1) % polygon.length;
-      if (polygon[i].latitude <= point.latitude && polygon[next].latitude > point.latitude || polygon[i].latitude > point.latitude && polygon[next].latitude <= point.latitude) {
-        double edgeLong = polygon[next].longitude - polygon[i].longitude;
-        double edgeLat = polygon[next].latitude - polygon[i].latitude;
-        double interpol = (point.latitude - polygon[i].latitude) / edgeLat;
-        if (point.longitude < polygon[i].longitude + interpol * edgeLong) {
+      if (polygon[i].lat! <= point.latitude && polygon[next].lat! > point.latitude || polygon[i].lat! > point.latitude && polygon[next].lat! <= point.latitude) {
+        double edgeLong = polygon[next].lon! - polygon[i].lon!;
+        double edgeLat = polygon[next].lat! - polygon[i].lat!;
+        double interpol = (point.latitude - polygon[i].lat!) / edgeLat;
+        if (point.longitude < polygon[i].lon! + interpol * edgeLong) {
           crossings++;
         }
       }

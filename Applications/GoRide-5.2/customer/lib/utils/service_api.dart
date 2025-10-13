@@ -56,4 +56,15 @@ class ServiceApi {
       rethrow;
     }
   }
+
+  /// Get zones
+  static Future<Map<String, dynamic>> getZones() async {
+    try {
+      final response = await ApiService.get('/api/v1/zones');
+      return response;
+    } catch (e) {
+      log('❌ Get Zones Error: $e');
+      rethrow;
+    }
+  }
 }

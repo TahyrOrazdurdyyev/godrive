@@ -455,19 +455,42 @@ class HomeController extends GetxController {
     );
     print('🔥 HomeController: PaymentModel created successfully');
 
-    // Create demo zones
-    zoneList.value = [
-      ZoneModel(
-        id: "zone_1",
-        name: [LanguageName(name: "Downtown Zone", type: "en")],
-        publish: true,
-      ),
-      ZoneModel(
-        id: "zone_2", 
-        name: [LanguageName(name: "Airport Zone", type: "en")],
-        publish: true,
-      ),
-    ];
+    // Load zones from API
+    print('🔥 HomeController: Starting to load zones from API...');
+    await loadZones();
+    print('🔥 HomeController: Zone loading completed. Total zones: ${zoneList.length}');
+  }
+
+  // Load zones from Laravel API
+  Future<void> loadZones() async {
+    print('🔥 loadZones: Method called');
+    try {
+      print('🔥 loadZones: Calling ServiceApi.getZones()...');
+      final response = await ServiceApi.getZones();
+      print('🔥 loadZones: API response received: ${response.toString().substring(0, 100)}');
+      
+      if (response['success'] == true && response['data'] != null) {
+        final List<dynamic> zonesData = response['data'];
+        print('🔥 loadZones: Parsing ${zonesData.length} zones...');
+        
+        zoneList.value = zonesData.map((json) {
+          print('🔥 loadZones: Parsing zone: ${json.toString().substring(0, 50)}...');
+          return ZoneModel.fromJson(json);
+        }).toList();
+        
+        print('✅ Loaded ${zoneList.length} zones from API');
+        for (var zone in zoneList) {
+          print('✅ Zone: id=${zone.id}, name=${zone.name}, area=${zone.area?.length ?? 0} points');
+        }
+      } else {
+        print('❌ Failed to load zones: ${response['message']}');
+        zoneList.value = [];
+      }
+    } catch (e, stackTrace) {
+      print('❌ Error loading zones: $e');
+      print('❌ Stack trace: $stackTrace');
+      zoneList.value = [];
+    }
   }
 
   RxList<ContactModel> contactList = <ContactModel>[].obs;
