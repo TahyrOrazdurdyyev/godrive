@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Validator;
+use App\Models\Customer;
 
 class UserController extends Controller
 {
@@ -87,4 +88,57 @@ class UserController extends Controller
     return view('users.view', compact('id'));
   }
 
+  public function getUsersList(Request $request)
+  {
+      try {
+          $status = $request->input('status', 'all');
+
+          $query = Customer::query();
+
+          if ($status === 'active') {
+              $query->where('is_active', 1);
+          } elseif ($status === 'inactive') {
+              $query->where('is_active', 0);
+          }
+
+          $users = $query->orderBy('created_at', 'desc')->get();
+
+          return response()->json([
+              'success' => true,
+              'users' => $users
+          ]);
+      } catch (\Exception $e) {
+          return response()->json([
+              'success' => false,
+              'message' => $e->getMessage()
+          ], 500);
+      }
+  }
+
+  public function toggleStatus(Request $request, $id)
+  {
+      try {
+          $user = Customer::find($id);
+
+          if (!$user) {
+              return response()->json([
+                  'success' => false,
+                  'message' => 'User not found'
+              ], 404);
+          }
+
+          $user->is_active = $request->input('is_active') ? 1 : 0;
+          $user->save();
+
+          return response()->json([
+              'success' => true,
+              'message' => 'Status updated successfully'
+          ]);
+      } catch (\Exception $e) {
+          return response()->json([
+              'success' => false,
+              'message' => 'Error: ' . $e->getMessage()
+          ], 500);
+      }
+  }
 }

@@ -23,7 +23,6 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 
 // Admin Statistics API Routes
 Route::middleware(['auth'])->group(function () {
-    Route::get('/admin/stats/dashboard', [AdminStatsController::class, 'getDashboardStats']);
     Route::get('/admin/stats/earnings', [AdminStatsController::class, 'getEarningsStats']);
     Route::get('/admin/stats/recent-rides', [AdminStatsController::class, 'getRecentRides']);
     Route::get('/admin/stats/top-drivers', [AdminStatsController::class, 'getTopDrivers']);
@@ -67,6 +66,8 @@ Route::get('/test', function () {
 });
 // Driver API endpoints - with web middleware (session auth)
 Route::middleware('web')->group(function () {
+	    // Dashboard stats
+    Route::get('/admin/stats/dashboard', [App\Http\Controllers\StatsController::class, 'getDashboardStats']);
     Route::get('/drivers/{id}/data', [App\Http\Controllers\DriverController::class, 'getDriverData']);
     Route::get('/drivers/{id}/orders', [App\Http\Controllers\DriverController::class, 'getDriverOrders']);
     Route::get('/drivers/{id}/reviews', [App\Http\Controllers\DriverController::class, 'getDriverReviews']);
@@ -75,6 +76,8 @@ Route::middleware('web')->group(function () {
     Route::get('/drivers/{id}/withdrawals', [App\Http\Controllers\DriverController::class, 'getDriverWithdrawals']);
     Route::post('/drivers/{id}/add-wallet', [App\Http\Controllers\DriverController::class, 'addWallet']);
     Route::post('/drivers/{id}/assign-subscription', [App\Http\Controllers\DriverController::class, 'assignSubscription']);
+        // Users API endpoint
+    Route::get('/users/list', [App\Http\Controllers\UserController::class, 'getUsersList']);
     
     // Settings API endpoint
     Route::get('/settings', function() {

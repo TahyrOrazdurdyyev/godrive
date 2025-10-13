@@ -10,6 +10,9 @@ class IntercityService extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected $connection = 'mysql_main';
+    protected $table = 'intercity_services';
+
     protected $fillable = [
         'title',
         'image',

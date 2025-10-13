@@ -159,6 +159,9 @@ Route::middleware(['permission:currency,currency.edit'])->group(function () {
 Route::middleware(['permission:currency,currency.create'])->group(function () {
 
     Route::get('/currency/create', [App\Http\Controllers\CurrencyController::class, 'create'])->name('currency.create');
+    Route::post('/currency/store', [App\Http\Controllers\CurrencyController::class, 'store'])->name('currency.store');
+Route::post('/currency/{id}/toggle-status', [App\Http\Controllers\CurrencyController::class, 'toggleStatus'])->name('currency.toggle-status');
+Route::delete('/currency/{id}', [App\Http\Controllers\CurrencyController::class, 'destroy'])->name('currency.destroy');
 });
 
 Route::middleware(['permission:vehicle-type,vehicle.type.list'])->group(function () {
@@ -175,6 +178,9 @@ Route::middleware(['permission:vehicle-type,vehicle.type.create'])->group(functi
 });
 
 Route::middleware(['permission:documents,document.list'])->group(function () {
+	Route::post('/documents/store', [App\Http\Controllers\DocumentsController::class, 'store'])->name('documents.store');
+Route::post('/documents/{id}/toggle-status', [App\Http\Controllers\DocumentsController::class, 'toggleStatus'])->name('documents.toggle-status');
+Route::delete('/documents/{id}', [App\Http\Controllers\DocumentsController::class, 'destroy'])->name('documents.destroy');
 
     Route::get('/documents', [App\Http\Controllers\DocumentsController::class, 'index'])->name('documents');
 });
@@ -205,6 +211,10 @@ Route::middleware(['permission:intercity_service,intercity.service.edit'])->grou
 
     Route::get('/intercity-service/edit/{id}', [App\Http\Controllers\IntercityServiceController::class, 'edit'])->name('intercity-service.edit');
 });
+Route::get('/intercity-service/create', [App\Http\Controllers\IntercityServiceController::class, 'create'])->name('intercity-service.create');
+Route::post('/intercity-service/store', [App\Http\Controllers\IntercityServiceController::class, 'store'])->name('intercity-service.store');
+Route::post('/intercity-service/{id}/toggle-status', [App\Http\Controllers\IntercityServiceController::class, 'toggleStatus'])->name('intercity-service.toggle-status');
+Route::delete('/intercity-service/{id}', [App\Http\Controllers\IntercityServiceController::class, 'destroy'])->name('intercity-service.destroy');
 
 Route::middleware(['permission:intercity_order,intercity.order.list'])->group(function () {
 
@@ -266,6 +276,9 @@ Route::middleware(['permission:on-board,onboard.list'])->group(function () {
 Route::middleware(['permission:on-board,onboard.edit'])->group(function () {
 
     Route::get('/on-board/save/{id}', [App\Http\Controllers\OnBoardController::class, 'show'])->name('on-board.save');
+    Route::post('/on-board/store', [App\Http\Controllers\OnBoardController::class, 'store'])->name('on-board.store');
+Route::post('/on-board/{id}/toggle-status', [App\Http\Controllers\OnBoardController::class, 'toggleStatus'])->name('on-board.toggle-status');
+Route::delete('/on-board/{id}', [App\Http\Controllers\OnBoardController::class, 'destroy'])->name('on-board.destroy');
 });
 Route::middleware(['permission:payout-request,payout-request'])->group(function () {
 
