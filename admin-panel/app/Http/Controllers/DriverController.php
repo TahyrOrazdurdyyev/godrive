@@ -10,6 +10,7 @@ use App\Models\SubscriptionHistory;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
 use App\Models\Setting;
+use App\Models\SubscriptionPlan;
 
 class DriverController extends Controller
 {   
@@ -36,7 +37,7 @@ class DriverController extends Controller
 
     public function getDriverData($id)
     {
-        $driver = Driver::with('subscriptionPlan')->find($id);
+        $driver = Driver::with('subscriptionPlan')->where('uid', $id)->first();
         
         if (!$driver) {
             return response()->json(['success' => false, 'message' => 'Driver not found'], 404);
@@ -292,5 +293,105 @@ class DriverController extends Controller
             ], 500);
         }
     }
-    
+    public function addWallet(Request $request, $id)
+    {
+        try {
+            $driver = Driver::where('uid', $id)->first();
+            
+            if (!$driver) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Driver not found'
+                ], 404);
+            }
+
+            $validated = $request->validate([
+                'amount' => 'required|numeric|min:0',
+                'note' => 'nullable|string'
+            ]);
+
+            // Update driver wallet
+            $driver->wallet_amount = ($driver->wallet_amount ?? 0) + $validated['amount'];
+            $driver->save();
+
+            // Create wallet transaction record
+            WalletTransaction::create([
+                'user_id' => $driver->id,
+                'user_type' => 'driver',
+                'amount' => $validated['amount'],
+                'type' => 'credit',
+                'payment_type' => 'admin_topup',
+                'note' => $validated['note'] ?? 'Wallet topup by admin',
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Wallet updated successfully',
+                'new_balance' => $driver->wallet_amount
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error updating wallet: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function assignSubscription(Request $request, $id)
+    {
+        try {
+            $driver = Driver::where('uid', $id)->first();
+            
+            if (!$driver) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Driver not found'
+                ], 404);
+            }
+
+            $validated = $request->validate([
+                'subscription_plan_id' => 'required'
+            ]);
+
+            $plan = SubscriptionPlan::find($validated['subscription_plan_id']);
+
+            // Calculate expiry date
+            $expiryDate = now()->addDays($plan->duration_days);
+
+            // Update driver subscription
+            $driver->subscription_plan_id = $plan->id;
+            $driver->subscription_expiry_date = $expiryDate;
+            $driver->save();
+
+            // Create subscription history record
+            SubscriptionHistory::create([
+                'id' => \Illuminate\Support\Str::uuid(),
+                'user_id' => $driver->id,
+                'subscription_plan_id' => $plan->id,
+                'subscription_plan_data' => [
+                    'title' => $plan->title,
+                    'amount' => $plan->amount,
+                    'duration_days' => $plan->duration_days,
+                    'total_orders' => $plan->total_orders
+                ],
+                'expiry_date' => $expiryDate,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Subscription assigned successfully',
+                'expiry_date' => $expiryDate->format('Y-m-d H:i:s')
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error assigning subscription: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
 }

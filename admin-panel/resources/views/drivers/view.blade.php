@@ -315,7 +315,6 @@
 <script type="text/javascript">
 
     var id = '{{$id}}';
-    var database = firebase.firestore();
     var decimal_degits = 0;
     var symbolAtRight = false;
     var currentCurrency = '';
@@ -442,15 +441,15 @@
         // Active Subscription Plan
         if (driver.subscription_plan) {
             var plan = driver.subscription_plan;
-            $('.subscription_plan_name').text(plan.title);
-            $('.subscription_plan_price').text(formatPrice(plan.amount));
+            $('.plan_name').text(plan.title);
+            $('.plan_type').text(formatPrice(plan.amount));
             
             if (driver.subscription_expiry_date) {
-                $('.subscription_expiry_date').text(formatDate(driver.subscription_expiry_date));
+                $('.plan_expire_at').text(formatDate(driver.subscription_expiry_date));
             }
             
-            if (driver.subscription_total_orders !== null && driver.subscription_total_orders !== undefined) {
-                $('.subscription_total_orders').text(driver.subscription_total_orders);
+            if (plan.total_orders !== null && plan.total_orders !== undefined) {
+                $('.booking_limit').text(plan.total_orders);
             }
             
             // Plan points

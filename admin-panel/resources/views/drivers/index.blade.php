@@ -114,7 +114,7 @@ $type = 'all';
                             var actionButtons = driver.is_active == 0 
                                 ? '<button class="btn btn-success btn-sm" onclick="approveDriver(' + driver.id + ')">Approve</button> ' +
                                   '<button class="btn btn-danger btn-sm" onclick="rejectDriver(' + driver.id + ')">Reject</button>'
-                                : '<a href="/drivers/view/' + driver.id + '" class="btn btn-primary btn-sm">View</a>';
+                                : '<a href="/drivers/view/' + driver.uid + '" class="btn btn-primary btn-sm">View</a>';
                             
                             html += '<tr>' +
                                 '<td>' + userImg + ' ' + driver.full_name + '</td>' +
