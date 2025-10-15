@@ -68,40 +68,38 @@ class InterCityController extends GetxController {
   RxBool isLoading = true.obs;
 
   getIntercityService() async {
-    // DEMO: Load static intercity service data
-    await Future.delayed(Duration(milliseconds: 500)); // Simulate loading
-    
-    intercityService.value = [
-      IntercityServiceModel(
-        id: "intercity_1",
-        enable: true,
-        kmCharge: "2.5",
-      ),
-      IntercityServiceModel(
-        id: "intercity_2", 
-        enable: true,
-        kmCharge: "3.0",
-      ),
-    ];
-    
-    if (intercityService.isNotEmpty) {
-      selectedInterCityType.value = intercityService.first;
+    try {
+      isLoading.value = true;
+      
+      // Load intercity services from API
+      final response = await ServiceApi.getIntercityServices();
+      
+      if (response['success'] == true && response['data'] != null) {
+        final List<dynamic> servicesData = response['data'];
+        intercityService.value = servicesData
+            .map((json) => IntercityServiceModel.fromJson(json))
+            .toList();
+        
+        print('🔥 Loaded ${intercityService.length} intercity services from API');
+        
+        if (intercityService.isNotEmpty) {
+          selectedInterCityType.value = intercityService.first;
+        }
+      } else {
+        print('❌ Failed to load intercity services');
+        intercityService.value = [];
+      }
+      
+      // For now, keep freight vehicles empty or load from API if endpoint exists
+      frightVehicleList.value = [];
+      
+    } catch (e) {
+      print('❌ Error loading intercity services: $e');
+      intercityService.value = [];
+      frightVehicleList.value = [];
+    } finally {
+      isLoading.value = false;
     }
-    
-    frightVehicleList.value = [
-      FreightVehicle(
-        id: "freight_1",
-        enable: true,
-        kmCharge: "5.0",
-      ),
-      FreightVehicle(
-        id: "freight_2",
-        enable: true, 
-        kmCharge: "7.5",
-      ),
-    ];
-    
-    isLoading.value = false;
   }
 
   Rx<PaymentModel> paymentModel = PaymentModel().obs;
@@ -109,24 +107,26 @@ class InterCityController extends GetxController {
   RxString selectedPaymentMethod = "".obs;
 
   getPaymentData() async {
-    // Load zones from Laravel API
-    try {
-      final response = await ServiceApi.getZones();
-      
-      if (response['success'] == true && response['data'] != null) {
-        final List<dynamic> zonesData = response['data'];
-        zoneList.value = zonesData.map((json) => ZoneModel.fromJson(json)).toList();
-        print('🔥 InterCity: Loaded ${zoneList.length} zones from API');
-      } else {
-        print('❌ InterCity: Failed to load zones');
-        zoneList.value = [];
-      }
-    } catch (e) {
-      print('❌ InterCity: Error loading zones: $e');
-      zoneList.value = [];
-    }
-    
-    paymentModel.value = PaymentModel();
+    // InterCity doesn't need zones - routes are predefined (e.g. Ashgabat-Mary)
+    // Load payment data - ONLY CASH ENABLED
+    paymentModel.value = PaymentModel(
+      cash: Wallet(
+        enable: true,
+        name: "Cash"
+      ),
+      wallet: Wallet(enable: false, name: "Wallet"),
+      strip: Strip(enable: false, name: "Stripe"),
+      flutterWave: FlutterWave(enable: false, name: "FlutterWave"),
+      payStack: PayStack(enable: false, name: "PayStack"),
+      mercadoPago: MercadoPago(enable: false, name: "MercadoPago"),
+      razorpay: RazorpayModel(enable: false, name: "Razorpay"),
+      paytm: Paytm(enable: false, name: "Paytm"),
+      payfast: Payfast(enable: false, name: "Payfast"),
+      paypal: Paypal(enable: false, name: "Paypal"),
+      xendit: Xendit(enable: false, name: "Xendit"),
+      orangePay: OrangePay(enable: false, name: "OrangePay"),
+      midtrans: Midtrans(enable: false, name: "Midtrans")
+    );
   }
 
   RxString duration = "".obs;

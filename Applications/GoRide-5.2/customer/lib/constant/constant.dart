@@ -205,18 +205,21 @@ class Constant {
   }
 
   String formatTimestamp(Timestamp? timestamp) {
+    if (timestamp == null) return '';
     var format = DateFormat('dd-MM-yyyy hh:mm aa'); // <- use skeleton here
-    return format.format(timestamp!.toDate());
+    return format.format(timestamp.toDate());
   }
 
   static String dateAndTimeFormatTimestamp(Timestamp? timestamp) {
+    if (timestamp == null) return '';
     var format = DateFormat('dd MMM yyyy hh:mm aa'); // <- use skeleton here
-    return format.format(timestamp!.toDate());
+    return format.format(timestamp.toDate());
   }
 
   static String dateFormatTimestamp(Timestamp? timestamp) {
+    if (timestamp == null) return '';
     var format = DateFormat('dd MMM yyyy'); // <- use skeleton here
-    return format.format(timestamp!.toDate());
+    return format.format(timestamp.toDate());
   }
 
   double calculateTax({String? amount, TaxModel? taxModel}) {

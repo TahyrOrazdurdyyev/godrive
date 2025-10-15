@@ -702,7 +702,8 @@ class HomeScreen extends StatelessWidget {
                                           orderModel.adminCommission = controller.selectedType.value.adminCommission!.isEnabled == false
                                               ? controller.selectedType.value.adminCommission!
                                               : Constant.adminCommission;
-                                          orderModel.otp = Constant.getReferralCode();
+                                          // OTP not needed for customer orders
+                                          orderModel.otp = null;
                                           orderModel.isAcSelected = controller.selectedType.value.isAcNonAc == true ? controller.isAcSelected.value : false;
                                           orderModel.taxList = Constant.taxList;
                                           if (controller.selectedTakingRide.value.fullName != "Myself") {

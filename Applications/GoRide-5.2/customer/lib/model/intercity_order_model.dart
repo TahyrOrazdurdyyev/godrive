@@ -35,6 +35,10 @@ class InterCityOrderModel {
   Positions? position;
   Timestamp? createdDate;
   Timestamp? updateDate;
+  String? createdAt; // API created_at field
+  String? updatedAt; // API updated_at field
+  String? duration; // API duration field
+  String? serviceId; // API service_id field
 
   bool? paymentStatus;
   List<TaxModel>? taxList;

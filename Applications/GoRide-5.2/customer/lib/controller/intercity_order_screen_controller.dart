@@ -1,90 +1,93 @@
+import 'dart:async';
 import 'dart:developer';
-import 'package:customer/model/order_model.dart';
+import 'package:customer/model/intercity_order_model.dart';
 import 'package:customer/utils/fire_store_utils.dart';
-import 'package:customer/utils/order_api.dart';
+import 'package:customer/utils/intercity_order_api.dart';
 import 'package:customer/utils/user_api.dart';
+import 'package:customer/services/websocket_service.dart';
 import 'package:get/get.dart';
 
-class OrderScreenController extends GetxController {
-  RxList<OrderModel> activeOrders = <OrderModel>[].obs;
-  RxList<OrderModel> completedOrders = <OrderModel>[].obs;
-  RxList<OrderModel> cancelledOrders = <OrderModel>[].obs;
+class InterCityOrderScreenController extends GetxController {
+  RxList<InterCityOrderModel> activeOrders = <InterCityOrderModel>[].obs;
+  RxList<InterCityOrderModel> completedOrders = <InterCityOrderModel>[].obs;
+  RxList<InterCityOrderModel> cancelledOrders = <InterCityOrderModel>[].obs;
   
   RxBool isLoadingActive = true.obs;
   RxBool isLoadingCompleted = true.obs;
   RxBool isLoadingCancelled = true.obs;
 
+  Timer? _refreshTimer;
+  final WebSocketService _wsService = WebSocketService();
+
   @override
   void onInit() {
     super.onInit();
-    log('🔥🔥🔥🔥🔥 OrderScreenController: onInit called at ${DateTime.now()}');
-    print('🔥🔥🔥🔥🔥 OrderScreenController: onInit called at ${DateTime.now()}');
     loadAllOrders();
-    // Customer app doesn't need periodic refresh or WebSocket
-    // Orders are loaded once when screen opens
+    _connectWebSocket();
+    _startPeriodicRefresh();
   }
 
   @override
   void onClose() {
-    // No timers or WebSocket to clean up
+    _refreshTimer?.cancel();
+    _wsService.disconnect();
     super.onClose();
+  }
+
+  /// Connect to WebSocket for real-time order updates
+  void _connectWebSocket() {
+    _wsService.connect();
+    _wsService.subscribeToChannel('orders', (event, data) {
+      log('📦 InterCity Order event received: $event');
+      if (event == 'order.updated' || event == 'order.created') {
+        loadAllOrders();
+      }
+    });
+  }
+
+  /// Periodic refresh every 10 seconds
+  void _startPeriodicRefresh() {
+    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      loadAllOrders();
+    });
   }
 
   /// Load all orders
   Future<void> loadAllOrders() async {
-    log('🔥🔥🔥 loadAllOrders: Called at ${DateTime.now()}');
-    print('🔥🔥🔥 loadAllOrders: Called at ${DateTime.now()}');
     await Future.wait([
       loadActiveOrders(),
       loadCompletedOrders(),
       loadCancelledOrders(),
     ]);
-    log('🔥🔥🔥 loadAllOrders: FINISHED at ${DateTime.now()}');
   }
 
   /// Load active orders
   Future<void> loadActiveOrders() async {
     try {
-      log('🔥 loadActiveOrders: Starting...');
       isLoadingActive.value = true;
       
       final uid = FireStoreUtils.getCurrentUid();
-      log('🔥 loadActiveOrders: UID = $uid');
-      
       final userResponse = await UserApi.getProfile(uid);
-      log('🔥 loadActiveOrders: User response = $userResponse');
-      
       final userId = userResponse['user']['id'];
-      log('🔥 loadActiveOrders: User ID = $userId');
       
-      final response = await OrderApi.getCustomerOrders(userId);
-      log('🔥 loadActiveOrders: Orders response = $response');
+      final response = await InterCityOrderApi.getCustomerOrders(userId);
       
       if (response['success'] == true && response['orders'] != null) {
         final List<dynamic> ordersData = response['orders'];
-        log('🔥 loadActiveOrders: Total orders from API = ${ordersData.length}');
         
-        // Filter active orders: exclude completed and cancelled (case-insensitive)
+        // Filter active orders
         activeOrders.value = ordersData
             .map((order) => _parseOrderFromApi(order))
-            .where((order) {
-              final status = order.status?.toLowerCase() ?? '';
-              return status != 'completed' && status != 'cancelled';
-            })
+            .where((order) => 
+                order.status != 'completed' && 
+                order.status != 'cancelled' &&
+                (order.paymentStatus == false || order.paymentStatus == null))
             .toList();
-        
-        log('✅ Loaded ${activeOrders.length} active orders');
-        for (var order in activeOrders) {
-          log('   📋 Order ${order.id}: status=${order.status}');
-        }
-      } else {
-        log('❌ Invalid response: success=${response['success']}, orders=${response['orders']}');
       }
     } catch (e) {
-      log('❌ Error loading active orders: $e');
+      log('❌ Error loading active intercity orders: $e');
     } finally {
       isLoadingActive.value = false;
-      log('🔥 loadActiveOrders: Finished, isLoading = ${isLoadingActive.value}');
     }
   }
 
@@ -97,22 +100,21 @@ class OrderScreenController extends GetxController {
       final userResponse = await UserApi.getProfile(uid);
       final userId = userResponse['user']['id'];
       
-      final response = await OrderApi.getCustomerOrders(userId);
+      final response = await InterCityOrderApi.getCustomerOrders(userId);
       
       if (response['success'] == true && response['orders'] != null) {
         final List<dynamic> ordersData = response['orders'];
         
-        // Filter completed orders (case-insensitive)
+        // Filter completed orders
         completedOrders.value = ordersData
             .map((order) => _parseOrderFromApi(order))
-            .where((order) {
-              final status = order.status?.toLowerCase() ?? '';
-              return status == 'completed';
-            })
+            .where((order) => 
+                order.status == 'completed' && 
+                order.paymentStatus == true)
             .toList();
       }
     } catch (e) {
-      log('❌ Error loading completed orders: $e');
+      log('❌ Error loading completed intercity orders: $e');
     } finally {
       isLoadingCompleted.value = false;
     }
@@ -127,36 +129,32 @@ class OrderScreenController extends GetxController {
       final userResponse = await UserApi.getProfile(uid);
       final userId = userResponse['user']['id'];
       
-      final response = await OrderApi.getCustomerOrders(userId);
+      final response = await InterCityOrderApi.getCustomerOrders(userId);
       
       if (response['success'] == true && response['orders'] != null) {
         final List<dynamic> ordersData = response['orders'];
         
-        // Filter cancelled orders (case-insensitive)
+        // Filter cancelled orders
         cancelledOrders.value = ordersData
             .map((order) => _parseOrderFromApi(order))
-            .where((order) {
-              final status = order.status?.toLowerCase() ?? '';
-              return status == 'cancelled';
-            })
+            .where((order) => order.status == 'cancelled')
             .toList();
       }
     } catch (e) {
-      log('❌ Error loading cancelled orders: $e');
+      log('❌ Error loading cancelled intercity orders: $e');
     } finally {
       isLoadingCancelled.value = false;
     }
   }
 
   /// Parse order from API response
-  OrderModel _parseOrderFromApi(Map<String, dynamic> orderData) {
-    OrderModel order = OrderModel();
+  InterCityOrderModel _parseOrderFromApi(Map<String, dynamic> orderData) {
+    InterCityOrderModel order = InterCityOrderModel();
     
     order.id = orderData['id']?.toString();
     order.userId = orderData['user_id']?.toString();
     order.driverId = orderData['driver_id']?.toString();
     order.serviceId = orderData['service_id']?.toString();
-    order.zoneId = orderData['zone_id']?.toString();
     order.sourceLocationName = orderData['source_location_name'];
     order.destinationLocationName = orderData['destination_location_name'];
     order.distance = orderData['distance']?.toString();
@@ -168,7 +166,6 @@ class OrderScreenController extends GetxController {
     order.paymentStatus = orderData['payment_status'] == 1 || orderData['payment_status'] == true;
     order.status = orderData['status'];
     order.otp = orderData['otp'];
-    order.isAcSelected = orderData['is_ac_selected'] == 1 || orderData['is_ac_selected'] == true;
     
     // Parse and format created_at in local timezone
     if (orderData['created_at'] != null) {
@@ -193,12 +190,9 @@ class OrderScreenController extends GetxController {
       }
     }
     
-    // Parse location coordinates
-    if (orderData['source_lat'] != null && orderData['source_lng'] != null) {
-      // Will need to create LocationLatLng objects if needed
-    }
-    
     return order;
   }
 }
+
+
 

@@ -158,7 +158,7 @@ class InterCityOrderApi {
     required String duration,
     required double offerRate,
     required String paymentType,
-    required String otp,
+    String? otp,
     required String whenTime,
     required String whenDates,
     required String comments,
@@ -168,6 +168,7 @@ class InterCityOrderApi {
     String? parcelDimension,
     String? sourceCity,
     String? destinationCity,
+    int? numberOfPassenger,
   }) async {
     try {
       // First get user by uid to get user_id
@@ -199,6 +200,7 @@ class InterCityOrderApi {
       if (parcelWeight != null) body['parcel_weight'] = parcelWeight;
       if (parcelDimension != null) body['parcel_dimension'] = parcelDimension;
       if (parcelImage != null) body['parcel_images'] = [parcelImage];
+      if (numberOfPassenger != null) body['number_of_passenger'] = numberOfPassenger;
 
       final response = await ApiService.post('/api/intercity-orders', body: body);
       return response;

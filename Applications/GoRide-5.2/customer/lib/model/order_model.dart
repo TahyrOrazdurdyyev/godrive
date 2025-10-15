@@ -35,6 +35,8 @@ class OrderModel {
   Timestamp? createdDate;
   Timestamp? updateDate;
   Timestamp? acceptHoldTime;
+  String? createdAt; // API created_at field
+  String? updatedAt; // API updated_at field
   bool? paymentStatus;
   bool? isAcSelected;
   List<TaxModel>? taxList;

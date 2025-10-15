@@ -12,6 +12,8 @@ import 'package:customer/constant/constant.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/constant/show_toast_dialog.dart';
 // Google Fonts replaced with local fonts
+import 'package:customer/services/api_service.dart';
+// Google Fonts replaced with local fonts
 import 'package:customer/controller/interCity_controller.dart';
 // Google Fonts replaced with local fonts
 import 'package:customer/model/contact_model.dart';
@@ -112,78 +114,6 @@ class InterCityScreen extends StatelessWidget {
                                   const SizedBox(
                                     height: 10,
                                   ),
-                                  InkWell(
-                                      onTap: () async {
-                                        if (Constant.selectedMapType == 'osm') {
-                                          Get.to(const OsmSearchPlacesApi())?.then((value) {
-                                            if (value != null) {
-                                              SearchInfo place = value;
-                                              controller.sourceCityController.value.text = place.address.toString();
-                                              controller.sourceLocationController.value.text = place.address.toString();
-                                              controller.sourceLocationLAtLng.value = LocationLatLng(latitude: place.point?.latitude, longitude: place.point?.longitude);
-                                              controller.calculateOsmAmount();
-                                            }
-                                          });
-                                        } else {
-                                          Get.to(const GoogleMapSearchPlacesApi())!.then((value) async {
-                                            if (value != null) {
-                                              PlaceDetailsModel placeDetailsModel = value;
-                                              controller.sourceCityController.value.text = placeDetailsModel.result!.vicinity.toString();
-
-                                              controller.sourceLocationController.value.text = placeDetailsModel.result!.formattedAddress.toString();
-                                              controller.sourceLocationLAtLng.value = LocationLatLng(
-                                                  latitude: placeDetailsModel.result!.geometry!.location!.lat, longitude: placeDetailsModel.result!.geometry!.location!.lng);
-
-                                              controller.calculateAmount();
-                                            }
-                                          });
-                                        }
-                                      },
-                                      child: TextFieldThem.buildTextFiled(
-                                        context,
-                                        hintText: 'From'.tr,
-                                        controller: controller.sourceLocationController.value,
-                                        enable: false,
-                                      )),
-                                  const SizedBox(
-                                    height: 10,
-                                  ),
-                                  InkWell(
-                                      onTap: () async {
-                                        if (Constant.selectedMapType == 'osm') {
-                                          Get.to(const OsmSearchPlacesApi())?.then((value) {
-                                            if (value != null) {
-                                              SearchInfo place = value;
-                                              controller.destinationCityController.value.text = place.address.toString();
-                                              controller.destinationLocationController.value.text = place.address.toString();
-                                              controller.destinationLocationLAtLng.value = LocationLatLng(latitude: place.point!.latitude, longitude: place.point!.longitude);
-                                              controller.calculateOsmAmount();
-                                            }
-                                          });
-                                        } else {
-                                          Get.to(const GoogleMapSearchPlacesApi())!.then((value) async {
-                                            if (value != null) {
-                                              PlaceDetailsModel placeDetailsModel = value;
-                                              controller.destinationCityController.value.text = placeDetailsModel.result!.vicinity.toString();
-
-                                              controller.destinationLocationController.value.text = placeDetailsModel.result!.formattedAddress.toString();
-                                              controller.destinationLocationLAtLng.value = LocationLatLng(
-                                                  latitude: placeDetailsModel.result!.geometry!.location!.lat, longitude: placeDetailsModel.result!.geometry!.location!.lng);
-
-                                              controller.calculateAmount();
-                                            }
-                                          });
-                                        }
-                                      },
-                                      child: TextFieldThem.buildTextFiled(
-                                        context,
-                                        hintText: 'To'.tr,
-                                        controller: controller.destinationLocationController.value,
-                                        enable: false,
-                                      )),
-                                  const SizedBox(
-                                    height: 10,
-                                  ),
                                   Text("Select Option".tr, style: TextStyle(fontWeight: FontWeight.w500, letterSpacing: 1)),
                                   const SizedBox(
                                     height: 05,
@@ -234,7 +164,9 @@ class InterCityScreen extends StatelessWidget {
                                                       child: Padding(
                                                         padding: const EdgeInsets.all(8.0),
                                                         child: CachedNetworkImage(
-                                                          imageUrl: serviceModel.image.toString(),
+                                                              imageUrl: serviceModel.image?.startsWith('http') == true
+                                                                  ? serviceModel.image.toString()
+                                                                  : '${ApiService.baseUrl}${serviceModel.image}',
                                                           fit: BoxFit.contain,
                                                           height: Responsive.height(8, context),
                                                           width: Responsive.width(18, context),
@@ -246,7 +178,7 @@ class InterCityScreen extends StatelessWidget {
                                                     const SizedBox(
                                                       height: 10,
                                                     ),
-                                                    Text(Constant.localizationName(serviceModel.name),
+                                                    Text(serviceModel.title ?? (serviceModel.name != null ? Constant.localizationName(serviceModel.name) : ''),
                                                         style: TextStyle(
                                                             color: controller.selectedInterCityType.value == serviceModel
                                                                 ? themeChange.getThem()
@@ -518,32 +450,20 @@ class InterCityScreen extends StatelessWidget {
                                             : "Ride Placed".tr,
                                     btnWidthRatio: Responsive.width(100, context),
                                     onPress: () async {
-                                      // Check for unpaid intercity orders via API
+                                      print('🔴🔴🔴 BUTTON CLICKED! 🔴🔴🔴');
+                                      // Skip payment check for now to debug
                                       bool isPaymentNotCompleted = false;
-                                      try {
-                                        final response = await InterCityOrderApi.getCustomerIntercityOrders(FireStoreUtils.getCurrentUid());
-                                        if (response['success'] == true && response['orders'] != null) {
-                                          List<dynamic> orders = response['orders'];
-                                          isPaymentNotCompleted = orders.any((order) => 
-                                            order['payment_status'] == false || order['payment_status'] == 0
-                                          );
-                                        }
-                                      } catch (e) {
-                                        log('❌ Payment check error: $e');
-                                      }
-
+                                      
                                       if (isPaymentNotCompleted) {
                                         showAlertDialog(context);
                                       } else {
-                                        if (controller.sourceLocationLAtLng.value.latitude != null && controller.destinationLocationLAtLng.value.latitude != null) {
-                                          for (int i = 0; i < controller.zoneList.length; i++) {
-                                            if (Constant.isPointInPolygon(
-                                              LatLng(double.parse(controller.sourceLocationLAtLng.value.latitude.toString()),
-                                                  double.parse(controller.sourceLocationLAtLng.value.longitude.toString())),
-                                              controller.zoneList[i].area!,
-                                            )) {
-                                              controller.selectedZone.value = controller.zoneList[i];
-                                              if (controller.selectedInterCityType.value.id == "647f350983ba2") {
+                                        // For InterCity, we don't need zones or specific source/destination coordinates
+                                        // The route is predefined (e.g., "Ashgabat - Mary")
+                                        
+                                        // Handle different service types
+                                        if (controller.selectedInterCityType.value.id == "647f350983ba2") {
+                                          // PARCEL service
+                                          if (controller.sourceLocationLAtLng.value.latitude != null && controller.destinationLocationLAtLng.value.latitude != null) {
                                                 if (controller.sourceLocationController.value.text.isEmpty) {
                                                   ShowToastDialog.showToast("Please select source location".tr);
                                                 } else if (controller.destinationLocationController.value.text.isEmpty) {
@@ -596,9 +516,9 @@ class InterCityScreen extends StatelessWidget {
                                                   intercityOrderModel.paymentType = controller.selectedPaymentMethod.value;
                                                   intercityOrderModel.paymentStatus = false;
                                                   intercityOrderModel.whenTime = DateFormat("HH:mm").format(controller.dateAndTime!);
-                                                  intercityOrderModel.whenDates = DateFormat("dd-MMM-yyyy").format(controller.dateAndTime!);
+                                                  intercityOrderModel.whenDates = DateFormat("yyyy-MM-dd").format(controller.dateAndTime!);
                                                   intercityOrderModel.comments = controller.commentsController.value.text;
-                                                  intercityOrderModel.otp = Constant.getReferralCode();
+                                                  intercityOrderModel.otp = null; // OTP not needed for intercity
                                                   intercityOrderModel.taxList = Constant.taxList;
                                                   intercityOrderModel.zoneId = controller.selectedZone.value.id;
                                                   intercityOrderModel.zone = controller.selectedZone.value;
@@ -649,7 +569,12 @@ class InterCityScreen extends StatelessWidget {
                                                     ShowToastDialog.showToast("Error creating order".tr);
                                                   }
                                                 }
-                                              } else if (controller.selectedInterCityType.value.id == "Kn2VEnPI3ikF58uK8YqY") {
+                                          } else {
+                                            ShowToastDialog.showToast("Please select location");
+                                          }
+                                        } else if (controller.selectedInterCityType.value.id == "Kn2VEnPI3ikF58uK8YqY") {
+                                          // FREIGHT service
+                                          if (controller.sourceLocationLAtLng.value.latitude != null && controller.destinationLocationLAtLng.value.latitude != null) {
                                                 if (controller.sourceLocationController.value.text.isEmpty) {
                                                   ShowToastDialog.showToast("Please select source location".tr);
                                                 } else if (controller.destinationLocationController.value.text.isEmpty) {
@@ -700,9 +625,9 @@ class InterCityScreen extends StatelessWidget {
                                                   intercityOrderModel.paymentType = controller.selectedPaymentMethod.value;
                                                   intercityOrderModel.paymentStatus = false;
                                                   intercityOrderModel.whenTime = DateFormat("HH:mm").format(controller.dateAndTime!);
-                                                  intercityOrderModel.whenDates = DateFormat("dd-MMM-yyyy").format(controller.dateAndTime!);
+                                                  intercityOrderModel.whenDates = DateFormat("yyyy-MM-dd").format(controller.dateAndTime!);
                                                   intercityOrderModel.comments = controller.commentsController.value.text;
-                                                  intercityOrderModel.otp = Constant.getReferralCode();
+                                                  intercityOrderModel.otp = null; // OTP not needed for intercity
                                                   intercityOrderModel.taxList = Constant.taxList;
                                                   intercityOrderModel.adminCommission = controller.selectedInterCityType.value.adminCommission!.isEnabled == false
                                                       ? controller.selectedInterCityType.value.adminCommission!
@@ -751,110 +676,100 @@ class InterCityScreen extends StatelessWidget {
                                                     ShowToastDialog.showToast("Error creating order".tr);
                                                   }
                                                 }
-                                              } else {
-                                                if (controller.sourceLocationController.value.text.isEmpty) {
-                                                  ShowToastDialog.showToast("Please select source location".tr);
-                                                } else if (controller.destinationLocationController.value.text.isEmpty) {
-                                                  ShowToastDialog.showToast("Please select destination location".tr);
-                                                } else if (controller.selectedPaymentMethod.value.isEmpty) {
+                                          } else {
+                                            ShowToastDialog.showToast("Please select location");
+                                          }
+                                        } else {
+                                          // Regular InterCity ride (not parcel, not freight)
+                                                // Route is predefined by service title (e.g., "Ashgabat - Mary")
+                                                print('🚕 InterCity: Starting order creation checks');
+                                                print('🚕 Payment method: ${controller.selectedPaymentMethod.value}');
+                                                print('🚕 Passengers: ${controller.noOfPassengers.value.text}');
+                                                print('🚕 When: ${controller.whenController.value.text}');
+                                                print('🚕 Service title: ${controller.selectedInterCityType.value.title}');
+                                                
+                                                if (controller.selectedPaymentMethod.value.isEmpty) {
+                                                  print('❌ Payment method is empty');
                                                   ShowToastDialog.showToast("Please select Payment Method".tr);
                                                 } else if (controller.noOfPassengers.value.text.isEmpty) {
+                                                  print('❌ Passengers is empty');
                                                   ShowToastDialog.showToast("Please enter Number of passenger".tr);
                                                 } else if (controller.whenController.value.text.isEmpty) {
+                                                  print('❌ Date/time is empty');
                                                   ShowToastDialog.showToast("Please select date and time".tr);
                                                 } else if (controller.selectedInterCityType.value.offerRate == true && controller.offerYourRateController.value.text.isEmpty) {
+                                                  print('❌ Offer rate is required but empty');
                                                   ShowToastDialog.showToast("Please Enter offer rate".tr);
                                                 } else {
+                                                  print('✅ All checks passed, creating order...');
                                                   ShowToastDialog.showLoader("Please wait".tr);
-                                                  InterCityOrderModel intercityOrderModel = InterCityOrderModel();
-                                                  intercityOrderModel.id = Constant.getUuid();
-                                                  intercityOrderModel.userId = FireStoreUtils.getCurrentUid();
-                                                  intercityOrderModel.sourceLocationName = controller.sourceLocationController.value.text;
-                                                  intercityOrderModel.sourceCity = controller.sourceCityController.value.text;
-                                                  intercityOrderModel.sourceLocationLAtLng = controller.sourceLocationLAtLng.value;
-
-                                                  intercityOrderModel.destinationLocationName = controller.destinationLocationController.value.text;
-                                                  intercityOrderModel.destinationCity = controller.destinationCityController.value.text;
-                                                  intercityOrderModel.destinationLocationLAtLng = controller.destinationLocationLAtLng.value;
-                                                  intercityOrderModel.distance = controller.distance.value;
-                                                  intercityOrderModel.offerRate = controller.selectedInterCityType.value.offerRate == true
-                                                      ? controller.offerYourRateController.value.text
-                                                      : controller.amount.value;
-                                                  intercityOrderModel.intercityServiceId = controller.selectedInterCityType.value.id;
-                                                  intercityOrderModel.intercityService = controller.selectedInterCityType.value;
-                                                  GeoFirePoint position = Geoflutterfire().point(
-                                                      latitude: controller.sourceLocationLAtLng.value.latitude!, longitude: controller.sourceLocationLAtLng.value.longitude!);
-
-                                                  intercityOrderModel.position = Positions(geoPoint: position.geoPoint, geohash: position.hash);
-                                                  intercityOrderModel.createdDate = Timestamp.now();
-                                                  intercityOrderModel.status = Constant.ridePlaced;
-                                                  intercityOrderModel.paymentType = controller.selectedPaymentMethod.value;
-                                                  intercityOrderModel.paymentStatus = false;
-                                                  intercityOrderModel.whenTime = DateFormat("HH:mm").format(controller.dateAndTime!);
-                                                  intercityOrderModel.whenDates = DateFormat("dd-MMM-yyyy").format(controller.dateAndTime!);
-                                                  intercityOrderModel.numberOfPassenger = controller.noOfPassengers.value.text;
-                                                  intercityOrderModel.comments = controller.commentsController.value.text;
-                                                  intercityOrderModel.otp = Constant.getReferralCode();
-                                                  intercityOrderModel.taxList = Constant.taxList;
-                                                  intercityOrderModel.adminCommission = controller.selectedInterCityType.value.adminCommission!.isEnabled == false
-                                                      ? controller.selectedInterCityType.value.adminCommission!
-                                                      : Constant.adminCommission;
-                                                  intercityOrderModel.distanceType = Constant.distanceType;
-                                                  intercityOrderModel.zoneId = controller.selectedZone.value.id;
-                                                  intercityOrderModel.zone = controller.selectedZone.value;
-                                                  if (controller.selectedTakingRide.value.fullName != "Myself") {
-                                                    intercityOrderModel.someOneElse = controller.selectedTakingRide.value;
-                                                  }
+                                                  
+                                                  // Use service title as route description (e.g., "Ashgabat - Mary")
+                                                  String serviceTitle = controller.selectedInterCityType.value.title ?? "InterCity";
+                                                  List<String> routeParts = serviceTitle.split(" - ");
+                                                  String sourceCity = routeParts.isNotEmpty ? routeParts[0].trim() : "Source";
+                                                  String destCity = routeParts.length > 1 ? routeParts[1].trim() : "Destination";
+                                                  
+                                                  // Use user's current location as source coordinates
+                                                  // Default to Ashgabat coordinates if not available
+                                                  double sourceLat = controller.sourceLocationLAtLng.value.latitude ?? 37.9496628;
+                                                  double sourceLng = controller.sourceLocationLAtLng.value.longitude ?? 58.3798646;
+                                                  
+                                                  // For intercity, destination coordinates can be approximate or null
+                                                  // Using same as source for now (backend will handle routing)
+                                                  double destLat = sourceLat;
+                                                  double destLng = sourceLng;
                                                   
                                                   try {
+                                                    print('📡 Calling API to create intercity order...');
+                                                    print('📡 User ID: ${FireStoreUtils.getCurrentUid()}');
+                                                    print('📡 Service ID: ${controller.selectedInterCityType.value.id}');
+                                                    print('📡 Payment: ${controller.selectedPaymentMethod.value}');
                                                     // Create intercity order via API
                                                     final response = await InterCityOrderApi.createIntercityOrder(
-                                                      userId: intercityOrderModel.userId!,
-                                                      serviceId: intercityOrderModel.intercityServiceId!,
-                                                      sourceLat: intercityOrderModel.sourceLocationLAtLng!.latitude!,
-                                                      sourceLng: intercityOrderModel.sourceLocationLAtLng!.longitude!,
-                                                      sourceLocationName: intercityOrderModel.sourceLocationName!,
-                                                      destinationLat: intercityOrderModel.destinationLocationLAtLng!.latitude!,
-                                                      destinationLng: intercityOrderModel.destinationLocationLAtLng!.longitude!,
-                                                      destinationLocationName: intercityOrderModel.destinationLocationName!,
-                                                      distance: intercityOrderModel.distance!,
-                                                      duration: '', // Add if available
-                                                      offerRate: double.parse(intercityOrderModel.offerRate!),
-                                                      paymentType: intercityOrderModel.paymentType!,
-                                                      otp: intercityOrderModel.otp!,
-                                                      whenTime: intercityOrderModel.whenTime!,
-                                                      whenDates: intercityOrderModel.whenDates!,
-                                                      comments: intercityOrderModel.comments ?? '',
-                                                      zoneId: intercityOrderModel.zoneId != null ? int.tryParse(intercityOrderModel.zoneId!) : null,
-                                                      parcelWeight: intercityOrderModel.parcelWeight,
-                                                      parcelDimension: intercityOrderModel.parcelDimension,
-                                                      sourceCity: intercityOrderModel.sourceCity,
-                                                      destinationCity: intercityOrderModel.destinationCity,
+                                                      userId: FireStoreUtils.getCurrentUid(),
+                                                      serviceId: controller.selectedInterCityType.value.id!,
+                                                      sourceLat: sourceLat,
+                                                      sourceLng: sourceLng,
+                                                      sourceLocationName: sourceCity,
+                                                      destinationLat: destLat,
+                                                      destinationLng: destLng,
+                                                      destinationLocationName: destCity,
+                                                      distance: "0", // Not applicable for predefined routes
+                                                      duration: '',
+                                                      offerRate: controller.selectedInterCityType.value.offerRate == true
+                                                          ? double.tryParse(controller.offerYourRateController.value.text) ?? 0.0
+                                                          : double.tryParse(controller.amount.value) ?? 0.0,
+                                                      paymentType: controller.selectedPaymentMethod.value,
+                                                      otp: null,
+                                                      whenTime: DateFormat("HH:mm").format(controller.dateAndTime!),
+                                                      whenDates: DateFormat("yyyy-MM-dd").format(controller.dateAndTime!),
+                                                      comments: controller.commentsController.value.text,
+                                                      zoneId: null, // Zones not needed for intercity
+                                                      parcelWeight: null,
+                                                      parcelDimension: null,
+                                                      sourceCity: sourceCity,
+                                                      destinationCity: destCity,
+                                                      numberOfPassenger: int.tryParse(controller.noOfPassengers.value.text),
                                                     );
                                                     
+                                                    print('✅ API response received: $response');
                                                     ShowToastDialog.closeLoader();
                                                     if (response['success'] == true) {
+                                                      print('✅ Order created successfully!');
                                                       ShowToastDialog.showToast("Ride Placed successfully".tr);
                                                       controller.dashboardController.selectedDrawerIndex(3);
                                                     } else {
-                                                      ShowToastDialog.showToast("Failed to create order".tr);
+                                                      print('❌ Order creation failed: ${response['message']}');
+                                                      ShowToastDialog.showToast("Failed to create order: ${response['message'] ?? 'Unknown error'}".tr);
                                                     }
                                                   } catch (e) {
                                                     ShowToastDialog.closeLoader();
+                                                    print('❌ Exception during order creation: $e');
                                                     log('❌ Create order error: $e');
                                                     ShowToastDialog.showToast("Error creating order".tr);
                                                   }
                                                 }
-                                              }
-                                              break;
-                                            } else {
-                                              ShowToastDialog.showToast(
-                                                  "Services are currently unavailable on the selected location. Please reach out to the administrator for assistance.",
-                                              );
-                                            }
-                                          }
-                                        } else {
-                                          ShowToastDialog.showToast("Please select location");
                                         }
                                       }
                                     },

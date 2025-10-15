@@ -372,42 +372,43 @@ class IntercityCompleteOrderScreen extends StatelessWidget {
                                                 const Divider(
                                                   thickness: 1,
                                                 ),
-                                                ListView.builder(
-                                                  itemCount: controller.orderModel.value.taxList!.length,
-                                                  shrinkWrap: true,
-                                                  padding: EdgeInsets.zero,
-                                                  itemBuilder: (context, index) {
-                                                    TaxModel taxModel = controller.orderModel.value.taxList![index];
-                                                    return Column(
-                                                      children: [
-                                                        Row(
-                                                          children: [
-                                                            Expanded(
-                                                              child: Text(
-                                                                "${taxModel.title.toString()} (${taxModel.type == "fix" ? Constant.amountShow(amount: taxModel.tax) : "${taxModel.tax}%"})",
-                                                                style: TextStyle(color: AppColors.subTitleColor),
+                                                if (controller.orderModel.value.taxList != null && controller.orderModel.value.taxList!.isNotEmpty)
+                                                  ListView.builder(
+                                                    itemCount: controller.orderModel.value.taxList!.length,
+                                                    shrinkWrap: true,
+                                                    padding: EdgeInsets.zero,
+                                                    itemBuilder: (context, index) {
+                                                      TaxModel taxModel = controller.orderModel.value.taxList![index];
+                                                      return Column(
+                                                        children: [
+                                                          Row(
+                                                            children: [
+                                                              Expanded(
+                                                                child: Text(
+                                                                  "${taxModel.title.toString()} (${taxModel.type == "fix" ? Constant.amountShow(amount: taxModel.tax) : "${taxModel.tax}%"})",
+                                                                  style: TextStyle(color: AppColors.subTitleColor),
+                                                                ),
                                                               ),
-                                                            ),
-                                                            Text(
-                                                              Constant.amountShow(
-                                                                  amount: Constant()
-                                                                      .calculateTax(
-                                                                          amount:
-                                                                              (double.parse(controller.orderModel.value.finalRate.toString()) - double.parse(controller.couponAmount.value.toString()))
-                                                                                  .toString(),
-                                                                          taxModel: taxModel)
-                                                                      .toString()),
-                                                              style: TextStyle(fontWeight: FontWeight.w600),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                        const Divider(
-                                                          thickness: 1,
-                                                        ),
-                                                      ],
-                                                    );
-                                                  },
-                                                ),
+                                                              Text(
+                                                                Constant.amountShow(
+                                                                    amount: Constant()
+                                                                        .calculateTax(
+                                                                            amount:
+                                                                                (double.parse(controller.orderModel.value.finalRate.toString()) - double.parse(controller.couponAmount.value.toString()))
+                                                                                    .toString(),
+                                                                            taxModel: taxModel)
+                                                                        .toString()),
+                                                                style: TextStyle(fontWeight: FontWeight.w600),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                          const Divider(
+                                                            thickness: 1,
+                                                          ),
+                                                        ],
+                                                      );
+                                                    },
+                                                  ),
                                                 Row(
                                                   children: [
                                                     Expanded(

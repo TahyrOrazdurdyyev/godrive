@@ -42,7 +42,7 @@ class OrderApi {
       if (isAcSelected != null) body['is_ac_selected'] = isAcSelected;
       if (someoneElseData != null) body['someone_else_data'] = someoneElseData;
 
-      final response = await ApiService.post('/api/orders', body: body);
+      final response = await ApiService.post('/api/v1/orders', body: body);
       return response;
     } catch (e) {
       log('❌ Create Order Error: $e');
@@ -53,7 +53,7 @@ class OrderApi {
   /// Get order by ID
   static Future<Map<String, dynamic>> getOrderById(String orderId) async {
     try {
-      final response = await ApiService.get('/api/orders/$orderId');
+      final response = await ApiService.get('/api/v1/orders/$orderId');
       return response;
     } catch (e) {
       log('❌ Get Order Error: $e');
@@ -64,7 +64,7 @@ class OrderApi {
   /// Get customer orders
   static Future<Map<String, dynamic>> getCustomerOrders(int userId) async {
     try {
-      final response = await ApiService.get('/api/orders/customer', queryParams: {
+      final response = await ApiService.get('/api/v1/orders/customer', queryParams: {
         'user_id': userId.toString(),
       });
       return response;
@@ -80,7 +80,7 @@ class OrderApi {
     String? cancellationReason,
   }) async {
     try {
-      final response = await ApiService.post('/api/orders/$orderId/cancel', body: {
+      final response = await ApiService.post('/api/v1/orders/$orderId/cancel', body: {
         'cancelled_by': 'customer',
         'cancellation_reason': cancellationReason,
       });
@@ -97,7 +97,7 @@ class OrderApi {
     required String status,
   }) async {
     try {
-      final response = await ApiService.put('/api/orders/$orderId/status', body: {
+      final response = await ApiService.put('/api/v1/orders/$orderId/status', body: {
         'status': status,
       });
       return response;
@@ -113,7 +113,7 @@ class OrderApi {
     required Map<String, dynamic> data,
   }) async {
     try {
-      final response = await ApiService.put('/api/orders/$orderId', body: data);
+      final response = await ApiService.put('/api/v1/orders/$orderId', body: data);
       return response;
     } catch (e) {
       log('❌ Update Order Error: $e');

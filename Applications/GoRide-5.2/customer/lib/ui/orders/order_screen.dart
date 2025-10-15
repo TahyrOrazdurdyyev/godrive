@@ -64,16 +64,42 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 // Google Fonts replaced with local fonts
 
-class OrderScreen extends StatelessWidget {
+class OrderScreen extends StatefulWidget {
   const OrderScreen({super.key});
+
+  @override
+  State<OrderScreen> createState() => _OrderScreenState();
+}
+
+class _OrderScreenState extends State<OrderScreen> {
+  late OrderScreenController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    log('🔥🔥🔥 OrderScreen: initState called at ${DateTime.now()}');
+    // Force delete old controller if exists
+    if (Get.isRegistered<OrderScreenController>(tag: 'order_screen')) {
+      Get.delete<OrderScreenController>(tag: 'order_screen', force: true);
+      log('🔥 OrderScreen: Deleted old controller');
+    }
+    // Create new controller - this will trigger onInit()
+    controller = Get.put(OrderScreenController(), tag: 'order_screen');
+    log('🔥 OrderScreen: New controller created');
+  }
+
+  @override
+  void dispose() {
+    log('🔥 OrderScreen: dispose called');
+    // Don't delete controller here, let GetX handle it
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final themeChange = Provider.of<DarkThemeProvider>(context);
-    return GetX<OrderScreenController>(
-      init: OrderScreenController(),
-      builder: (controller) {
-        return Scaffold(
+    return Obx(() {
+      return Scaffold(
       backgroundColor: AppColors.primary,
       body: Column(
         children: [
@@ -255,18 +281,9 @@ class OrderScreen extends StatelessWidget {
                                                                   crossAxisAlignment: CrossAxisAlignment.center,
                                                                   children: [
                                                                     Expanded(
-                                                                      child: orderModel.status == Constant.rideInProgress ||
-                                                                              orderModel.status == Constant.ridePlaced ||
-                                                                              orderModel.status == Constant.rideComplete
-                                                                          ? Text(orderModel.status.toString())
-                                                                          : Row(
-                                                                              children: [
-                                                                                Text("OTP".tr, style: TextStyle()),
-                                                                                Text(" : ${orderModel.otp}", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                                                                              ],
-                                                                            ),
+                                                                      child: Text(orderModel.status.toString(), style: TextStyle()),
                                                                     ),
-                                                                    Text(Constant().formatTimestamp(orderModel.createdDate), style: TextStyle(fontSize: 12)),
+                                                                    Text(orderModel.createdAt ?? '', style: TextStyle(fontSize: 12)),
                                                                   ],
                                                                 )),
                                                           ),
@@ -708,7 +725,6 @@ class OrderScreen extends StatelessWidget {
         ],
       ),
     );
-      },
-    );
+    });
   }
 }

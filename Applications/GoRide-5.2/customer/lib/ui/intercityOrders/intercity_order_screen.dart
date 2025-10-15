@@ -1,60 +1,23 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-// Google Fonts replaced with local fonts
-import 'package:customer/constant/collection_name.dart';
-// Google Fonts replaced with local fonts
 import 'package:customer/constant/constant.dart';
-// Google Fonts replaced with local fonts
 import 'package:customer/constant/show_toast_dialog.dart';
-// Google Fonts replaced with local fonts
-import 'package:customer/model/driver_user_model.dart';
-// Google Fonts replaced with local fonts
+import 'package:customer/controller/intercity_order_screen_controller.dart';
 import 'package:customer/model/intercity_order_model.dart';
-// Google Fonts replaced with local fonts
-import 'package:customer/model/sos_model.dart';
-// Google Fonts replaced with local fonts
-import 'package:customer/model/user_model.dart';
-// Google Fonts replaced with local fonts
 import 'package:customer/themes/app_colors.dart';
-// Google Fonts replaced with local fonts
 import 'package:customer/themes/button_them.dart';
-// Google Fonts replaced with local fonts
 import 'package:customer/themes/responsive.dart';
-// Google Fonts replaced with local fonts
-import 'package:customer/ui/chat_screen/chat_screen.dart';
-// Google Fonts replaced with local fonts
-import 'package:customer/ui/intercityOrders/intercity_accept_order_screen.dart';
-// Google Fonts replaced with local fonts
 import 'package:customer/ui/intercityOrders/intercity_complete_order_screen.dart';
-// Google Fonts replaced with local fonts
 import 'package:customer/ui/intercityOrders/intercity_payment_order_screen.dart';
-// Google Fonts replaced with local fonts
 import 'package:customer/ui/orders/live_tracking_screen.dart';
-// Google Fonts replaced with local fonts
-import 'package:customer/ui/review/review_screen.dart';
-// Google Fonts replaced with local fonts
 import 'package:customer/utils/DarkThemeProvider.dart';
-// Google Fonts replaced with local fonts
 import 'package:customer/utils/fire_store_utils.dart';
 import 'package:customer/utils/user_api.dart';
-import 'package:customer/utils/driver_api.dart';
 import 'package:customer/utils/sos_api.dart';
-import 'dart:developer';
-// Google Fonts replaced with local fonts
-import 'package:customer/utils/utils.dart';
-// Google Fonts replaced with local fonts
-import 'package:customer/widget/driver_view.dart';
-// Google Fonts replaced with local fonts
 import 'package:customer/widget/location_view.dart';
-// Google Fonts replaced with local fonts
+import 'package:customer/widget/driver_view.dart';
 import 'package:flutter/material.dart';
-// Google Fonts replaced with local fonts
 import 'package:get/get.dart';
-// Google Fonts replaced with local fonts
-
 import 'package:provider/provider.dart';
-// Google Fonts replaced with local fonts
-import 'package:share_plus/share_plus.dart';
-// Google Fonts replaced with local fonts
+import 'dart:developer';
 
 class InterCityOrderScreen extends StatelessWidget {
   const InterCityOrderScreen({super.key});
@@ -62,676 +25,560 @@ class InterCityOrderScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeChange = Provider.of<DarkThemeProvider>(context);
-
-    return Scaffold(
-      backgroundColor: AppColors.primary,
-      body: Column(
-        children: [
-          Container(
-            height: Responsive.width(8, context),
-            width: Responsive.width(100, context),
-            color: AppColors.primary,
-          ),
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.background, borderRadius: const BorderRadius.only(topLeft: Radius.circular(25), topRight: Radius.circular(25))),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 10),
-                  child: DefaultTabController(
-                    length: 3,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        TabBar(
-                          indicatorColor: AppColors.darkModePrimary,
-                          tabs: [
-                            Tab(
-                                child: Text(
-                              "Active Rides".tr,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(),
-                            )),
-                            Tab(
-                                child: Text(
-                              "Completed Rides".tr,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(),
-                            )),
-                            Tab(
-                                child: Text(
-                              "Canceled Rides".tr,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(),
-                            )),
-                          ],
-                        ),
-                        Expanded(
-                          child: TabBarView(
+    return GetX<InterCityOrderScreenController>(
+        init: InterCityOrderScreenController(),
+        builder: (controller) {
+          return Scaffold(
+            backgroundColor: AppColors.primary,
+            body: Column(
+              children: [
+                Container(
+                  height: Responsive.width(8, context),
+                  width: Responsive.width(100, context),
+                  color: AppColors.primary,
+                ),
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.background,
+                        borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(25),
+                            topRight: Radius.circular(25))),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: DefaultTabController(
+                          length: 3,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              StreamBuilder<QuerySnapshot>(
-                                stream: FirebaseFirestore.instance
-                                    .collection(CollectionName.ordersIntercity)
-                                    .where("userId", isEqualTo: FireStoreUtils.getCurrentUid())
-                                    .where("status", whereIn: [Constant.ridePlaced, Constant.rideInProgress, Constant.rideComplete, Constant.rideActive])
-                                    .where("paymentStatus", isEqualTo: false)
-                                    .orderBy("createdDate", descending: true)
-                                    .snapshots(),
-                                builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
-                                  if (snapshot.hasError) {
-                                    return Center(child: Text('Something went wrong'.tr));
-                                  }
-                                  if (snapshot.connectionState == ConnectionState.waiting) {
-                                    return Constant.loader();
-                                  }
-                                  return snapshot.data!.docs.isEmpty
-                                      ? Center(
-                                          child: Text("No active rides Found".tr),
-                                        )
-                                      : ListView.builder(
-                                          itemCount: snapshot.data!.docs.length,
-                                          scrollDirection: Axis.vertical,
-                                          shrinkWrap: true,
-                                          itemBuilder: (context, index) {
-                                            InterCityOrderModel orderModel = InterCityOrderModel.fromJson(snapshot.data!.docs[index].data() as Map<String, dynamic>);
-                                            return InkWell(
-                                              onTap: () {
-                                                if (Constant.mapType == "inappmap") {
-                                                  if (orderModel.status == Constant.rideActive || orderModel.status == Constant.rideInProgress) {
-                                                    Get.to(const LiveTrackingScreen(), arguments: {
-                                                      "interCityOrderModel": orderModel,
-                                                      "type": "interCityOrderModel",
-                                                    });
-                                                  }
-                                                } else {
-                                                  Utils.redirectMap(
-                                                      latitude: orderModel.destinationLocationLAtLng!.latitude!,
-                                                      longLatitude: orderModel.destinationLocationLAtLng!.longitude!,
-                                                      name: orderModel.destinationLocationName.toString());
-                                                }
-                                              },
-                                              child: Padding(
-                                                padding: const EdgeInsets.all(10),
-                                                child: Container(
-                                                  decoration: BoxDecoration(
-                                                    color: themeChange.getThem() ? AppColors.darkContainerBackground : AppColors.containerBackground,
-                                                    borderRadius: const BorderRadius.all(Radius.circular(10)),
-                                                    border: Border.all(color: themeChange.getThem() ? AppColors.darkContainerBorder : AppColors.containerBorder, width: 0.5),
-                                                    boxShadow: themeChange.getThem()
-                                                        ? null
-                                                        : [
-                                                            BoxShadow(
-                                                              color: Colors.black.withOpacity(0.10),
-                                                              blurRadius: 5,
-                                                              offset: const Offset(0, 4), // changes position of shadow
-                                                            ),
-                                                          ],
-                                                  ),
-                                                  child: Padding(
-                                                    padding: const EdgeInsets.all(10.0),
-                                                    child: Column(
-                                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                                      children: [
-                                                        orderModel.status == Constant.rideComplete || orderModel.status == Constant.rideActive
-                                                            ? const SizedBox()
-                                                            : Row(
+                              TabBar(
+                                indicatorColor: AppColors.darkModePrimary,
+                                tabs: [
+                                  Tab(
+                                      child: Text(
+                                    "Active Rides".tr,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(),
+                                  )),
+                                  Tab(
+                                      child: Text(
+                                    "Completed Rides".tr,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(),
+                                  )),
+                                  Tab(
+                                      child: Text(
+                                    "Canceled Rides".tr,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(),
+                                  )),
+                                ],
+                              ),
+                              Expanded(
+                                child: TabBarView(
+                                  children: [
+                                    // Active Orders from API
+                                    controller.isLoadingActive.value
+                                        ? Center(child: Constant.loader())
+                                        : controller.activeOrders.isEmpty
+                                            ? Center(
+                                                child: Text(
+                                                    "No active rides found".tr))
+                                            : ListView.builder(
+                                                itemCount: controller
+                                                    .activeOrders.length,
+                                                scrollDirection: Axis.vertical,
+                                                shrinkWrap: true,
+                                                itemBuilder: (context, index) {
+                                                  InterCityOrderModel
+                                                      orderModel = controller
+                                                          .activeOrders[index];
+
+                                                  return InkWell(
+                                                    onTap: () {
+                                                      Get.to(
+                                                          IntercityCompleteOrderScreen(),
+                                                          arguments: {
+                                                            "orderModel":
+                                                                orderModel,
+                                                          });
+                                                    },
+                                                    child: Padding(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                              10),
+                                                      child: Container(
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          color: themeChange
+                                                                  .getThem()
+                                                              ? AppColors
+                                                                  .darkContainerBackground
+                                                              : AppColors
+                                                                  .containerBackground,
+                                                          borderRadius:
+                                                              const BorderRadius
+                                                                  .all(Radius
+                                                                      .circular(
+                                                                          10)),
+                                                          border: Border.all(
+                                                              color: themeChange
+                                                                      .getThem()
+                                                                  ? AppColors
+                                                                      .darkContainerBorder
+                                                                  : AppColors
+                                                                      .containerBorder,
+                                                              width: 0.5),
+                                                          boxShadow: themeChange
+                                                                  .getThem()
+                                                              ? null
+                                                              : [
+                                                                  BoxShadow(
+                                                                    color: Colors
+                                                                        .black
+                                                                        .withOpacity(
+                                                                            0.10),
+                                                                    blurRadius:
+                                                                        5,
+                                                                    offset: const Offset(
+                                                                        0, 4),
+                                                                  ),
+                                                                ],
+                                                        ),
+                                                        child: Padding(
+                                                          padding:
+                                                              const EdgeInsets
+                                                                  .all(8.0),
+                                                          child: Column(
+                                                            children: [
+                                                              Row(
                                                                 children: [
                                                                   Expanded(
                                                                     child: Text(
-                                                                      orderModel.status.toString(),
-                                                                      style: TextStyle(fontWeight: FontWeight.w500),
+                                                                      orderModel
+                                                                              .status
+                                                                              .toString() ??
+                                                                          '',
+                                                                      style: TextStyle(
+                                                                          color: orderModel.status == Constant.ridePlaced
+                                                                              ? Colors.orange
+                                                                              : orderModel.status == Constant.rideActive
+                                                                                  ? Colors.blue
+                                                                                  : orderModel.status == Constant.rideInProgress
+                                                                                      ? Colors.green
+                                                                                      : Colors.grey,
+                                                                          fontWeight: FontWeight.w600),
                                                                     ),
                                                                   ),
                                                                   Text(
-                                                                    orderModel.status == Constant.ridePlaced
-                                                                        ? Constant.amountShow(
-                                                                            amount: double.parse(orderModel.offerRate.toString())
-                                                                                .toStringAsFixed(Constant.currencyModel!.decimalDigits!))
-                                                                        : Constant.amountShow(
-                                                                            amount: double.parse(orderModel.finalRate.toString())
-                                                                                .toStringAsFixed(Constant.currencyModel!.decimalDigits!)),
-                                                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                                                    "\$ ${orderModel.offerRate ?? '0'}",
+                                                                    style:
+                                                                        TextStyle(
+                                                                      fontSize:
+                                                                          18,
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w800,
+                                                                    ),
                                                                   ),
                                                                 ],
                                                               ),
-                                                        orderModel.status == Constant.rideComplete || orderModel.status == Constant.rideActive
-                                                            ? Padding(
-                                                                padding: const EdgeInsets.symmetric(vertical: 10),
-                                                                child: DriverView(
-                                                                  driverId: orderModel.driverId.toString(),
-                                                                ),
-                                                              )
-                                                            : Container(),
-                                                        const SizedBox(
-                                                          height: 10,
-                                                        ),
-                                                        Row(
-                                                          children: [
-                                                            Container(
-                                                              decoration:
-                                                                  BoxDecoration(color: Colors.grey.withOpacity(0.30), borderRadius: const BorderRadius.all(Radius.circular(5))),
-                                                              child: Padding(
-                                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                                                child: Text(orderModel.paymentType.toString()),
-                                                              ),
-                                                            ),
-                                                            const SizedBox(
-                                                              width: 10,
-                                                            ),
-                                                            Container(
-                                                              decoration: BoxDecoration(
-                                                                  color: AppColors.primary.withOpacity(0.30), borderRadius: const BorderRadius.all(Radius.circular(5))),
-                                                              child: Padding(
-                                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                                                child: Text(Constant.localizationName(orderModel.intercityService!.name)),
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                        const SizedBox(
-                                                          height: 10,
-                                                        ),
-                                                        LocationView(
-                                                          sourceLocation: orderModel.sourceLocationName.toString(),
-                                                          destinationLocation: orderModel.destinationLocationName.toString(),
-                                                        ),
-                                                        const SizedBox(
-                                                          height: 5,
-                                                        ),
-                                                        orderModel.someOneElse != null
-                                                            ? Container(
-                                                                decoration: BoxDecoration(
-                                                                    color: themeChange.getThem() ? AppColors.darkGray : AppColors.gray,
-                                                                    borderRadius: const BorderRadius.all(Radius.circular(10))),
-                                                                child: Padding(
-                                                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                                                                    child: Row(
-                                                                      mainAxisAlignment: MainAxisAlignment.center,
-                                                                      crossAxisAlignment: CrossAxisAlignment.center,
-                                                                      children: [
-                                                                        Expanded(
-                                                                          child: Row(
-                                                                            children: [
-                                                                              Text(orderModel.someOneElse!.fullName.toString().tr, style: TextStyle()),
-                                                                              Text(orderModel.someOneElse!.contactNumber.toString().tr,
-                                                                                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                                                                            ],
-                                                                          ),
-                                                                        ),
-                                                                        InkWell(
-                                                                            onTap: () async {
-                                                                              await Share.share(
-                                                                                subject: 'Ride Booked'.tr,
-                                                                                'Your ride is booked. and you enjoy this ride and here is a otp to conform this ride ${orderModel.otp}'
-                                                                                    .tr,
-                                                                              );
-                                                                            },
-                                                                            child: const Icon(Icons.share))
-                                                                      ],
-                                                                    )),
-                                                              )
-                                                            : const SizedBox(),
-                                                        Padding(
-                                                          padding: const EdgeInsets.symmetric(vertical: 14),
-                                                          child: Container(
-                                                            decoration: BoxDecoration(
-                                                                color: themeChange.getThem() ? AppColors.darkGray : AppColors.gray,
-                                                                borderRadius: const BorderRadius.all(Radius.circular(10))),
-                                                            child: Padding(
-                                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                                                                child: Row(
-                                                                  mainAxisAlignment: MainAxisAlignment.center,
-                                                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                                                  children: [
-                                                                    Expanded(
-                                                                      child: orderModel.status == Constant.rideInProgress ||
-                                                                              orderModel.status == Constant.ridePlaced ||
-                                                                              orderModel.status == Constant.rideComplete
-                                                                          ? Text(orderModel.status.toString())
-                                                                          : Row(
-                                                                              children: [
-                                                                                Text("OTP".tr, style: TextStyle()),
-                                                                                Text(" : ${orderModel.otp}", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                                                                              ],
-                                                                            ),
-                                                                    ),
-                                                                    Text(Constant().formatTimestamp(orderModel.createdDate), style: TextStyle(fontSize: 12)),
-                                                                  ],
-                                                                )),
-                                                          ),
-                                                        ),
-                                                        Visibility(
-                                                          visible: orderModel.status == Constant.ridePlaced,
-                                                          child: ButtonThem.buildButton(
-                                                            context,
-                                                            title: "View bids (${orderModel.acceptedDriverId != null ? orderModel.acceptedDriverId!.length.toString() : "0"})".tr,
-                                                            btnHeight: 44,
-                                                            onPress: () async {
-                                                              Get.to(const InterCityAcceptOrderScreen(), arguments: {
-                                                                "orderModel": orderModel,
-                                                              });
-                                                            },
-                                                          ),
-                                                        ),
-                                                        Visibility(
-                                                            visible: orderModel.status != Constant.ridePlaced,
-                                                            child: Row(
-                                                              children: [
-                                                                Expanded(
-                                                                  child: InkWell(
-                                                                    onTap: () async {
-                                                                      UserModel? customer;
-                                                                      DriverUserModel? driver;
-                                                                      
-                                                                      try {
-                                                                        final customerResponse = await UserApi.getProfile(orderModel.userId.toString());
-                                                                        if (customerResponse['success'] == true && customerResponse['user'] != null) {
-                                                                          customer = UserModel.fromJson(customerResponse['user']);
-                                                                        }
-                                                                        
-                                                                        final driverResponse = await DriverApi.getProfile(orderModel.driverId.toString());
-                                                                        if (driverResponse['success'] == true && driverResponse['driver'] != null) {
-                                                                          driver = DriverUserModel.fromJson(driverResponse['driver']);
-                                                                        }
-                                                                      } catch (e) {
-                                                                        log('❌ Error loading user/driver: $e');
-                                                                      }
-
-                                                                      if (customer != null && driver != null) {
-                                                                        Get.to(ChatScreens(
-                                                                        driverId: driver!.id,
-                                                                        customerId: customer!.id,
-                                                                        customerName: customer.fullName,
-                                                                        customerProfileImage: customer.profilePic,
-                                                                        driverName: driver.fullName,
-                                                                        driverProfileImage: driver.profilePic,
-                                                                          orderId: orderModel.id,
-                                                                          token: driver.fcmToken,
-                                                                        ));
-                                                                      }
-                                                                    },
-                                                                    child: Container(
-                                                                      height: 44,
-                                                                      decoration: BoxDecoration(
-                                                                          color: themeChange.getThem() ? AppColors.darkModePrimary : AppColors.primary,
-                                                                          borderRadius: BorderRadius.circular(5)),
-                                                                      child: Icon(Icons.chat, color: themeChange.getThem() ? Colors.black : Colors.white),
-                                                                    ),
-                                                                  ),
-                                                                ),
-                                                                const SizedBox(
-                                                                  width: 10,
-                                                                ),
-                                                                Expanded(
-                                                                  child: InkWell(
-                                                                    onTap: () async {
-                                                                      try {
-                                                                        final driverResponse = await DriverApi.getProfile(orderModel.driverId.toString());
-                                                                        if (driverResponse['success'] == true && driverResponse['driver'] != null) {
-                                                                          DriverUserModel driver = DriverUserModel.fromJson(driverResponse['driver']);
-                                                                          Constant.makePhoneCall("${driver.countryCode}${driver.phoneNumber}");
-                                                                        }
-                                                                      } catch (e) {
-                                                                        log('❌ Error loading driver: $e');
-                                                                      }
-                                                                    },
-                                                                    child: Container(
-                                                                      height: 44,
-                                                                      decoration: BoxDecoration(
-                                                                          color: themeChange.getThem() ? AppColors.darkModePrimary : AppColors.primary,
-                                                                          borderRadius: BorderRadius.circular(5)),
-                                                                      child: Icon(Icons.call, color: themeChange.getThem() ? Colors.black : Colors.white),
-                                                                    ),
-                                                                  ),
-                                                                )
-                                                              ],
-                                                            )),
-                                                        const SizedBox(
-                                                          height: 10,
-                                                        ),
-                                                        Visibility(
-                                                            visible: orderModel.status == Constant.rideInProgress,
-                                                            child: ButtonThem.buildButton(
-                                                              context,
-                                                              title: "SOS".tr,
-                                                              btnHeight: 44,
-                                                              onPress: () async {
-                                                                try {
-                                                                  // Check if SOS already exists for this order
-                                                                  final response = await SosApi.getByOrder(
-                                                                    orderId: orderModel.id.toString(),
-                                                                    orderType: 'intercity',
-                                                                  );
-                                                                  
-                                                                  if (response['success'] == true && response['sos'] != null) {
-                                                                    ShowToastDialog.showToast("Your request is ${response['sos']['status']}");
-                                                                  }
-                                                                } catch (e) {
-                                                                  // SOS doesn't exist, create new one
-                                                                  try {
-                                                                    final uid = FireStoreUtils.getCurrentUid();
-                                                                    final userResponse = await UserApi.getProfile(uid);
-                                                                    
-                                                                    if (userResponse['success'] == true && userResponse['user'] != null) {
-                                                                      await SosApi.create(
-                                                                        userId: userResponse['user']['id'],
-                                                                        orderType: 'intercity',
-                                                                        intercityOrderId: orderModel.id,
-                                                                        status: 'initiated',
-                                                                      );
-                                                                      ShowToastDialog.showToast("SOS initiated successfully");
-                                                                    }
-                                                                  } catch (createError) {
-                                                                    log('❌ Error creating SOS: $createError');
-                                                                    ShowToastDialog.showToast("Failed to initiate SOS");
-                                                                  }
-                                                                }
-                                                              },
-                                                            )),
-                                                        Visibility(
-                                                          visible:
-                                                              orderModel.status == Constant.rideComplete && (orderModel.paymentStatus == null || orderModel.paymentStatus == false),
-                                                          child: ButtonThem.buildButton(
-                                                            context,
-                                                            title: "Pay".tr,
-                                                            btnHeight: 44,
-                                                            onPress: () async {
-                                                              Get.to(const InterCityPaymentOrderScreen(), arguments: {
-                                                                "orderModel": orderModel,
-                                                              });
-                                                              // paymentMethodDialog(context, controller, orderModel);
-                                                            },
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            );
-                                          });
-                                },
-                              ),
-                              StreamBuilder<QuerySnapshot>(
-                                stream: FirebaseFirestore.instance
-                                    .collection(CollectionName.ordersIntercity)
-                                    .where("userId", isEqualTo: FireStoreUtils.getCurrentUid())
-                                    .where("status", isEqualTo: Constant.rideComplete)
-                                    .where("paymentStatus", isEqualTo: true)
-                                    .orderBy("createdDate", descending: true)
-                                    .snapshots(),
-                                builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
-                                  if (snapshot.hasError) {
-                                    return Center(child: Text('Something went wrong'.tr));
-                                  }
-                                  if (snapshot.connectionState == ConnectionState.waiting) {
-                                    return Constant.loader();
-                                  }
-                                  return snapshot.data!.docs.isEmpty
-                                      ? Center(
-                                          child: Text("No completed rides Found".tr),
-                                        )
-                                      : ListView.builder(
-                                          itemCount: snapshot.data!.docs.length,
-                                          scrollDirection: Axis.vertical,
-                                          shrinkWrap: true,
-                                          itemBuilder: (context, index) {
-                                            InterCityOrderModel orderModel = InterCityOrderModel.fromJson(snapshot.data!.docs[index].data() as Map<String, dynamic>);
-                                            return Padding(
-                                              padding: const EdgeInsets.all(10),
-                                              child: Container(
-                                                decoration: BoxDecoration(
-                                                  color: themeChange.getThem() ? AppColors.darkContainerBackground : AppColors.containerBackground,
-                                                  borderRadius: const BorderRadius.all(Radius.circular(10)),
-                                                  border: Border.all(color: themeChange.getThem() ? AppColors.darkContainerBorder : AppColors.containerBorder, width: 0.5),
-                                                  boxShadow: themeChange.getThem()
-                                                      ? null
-                                                      : [
-                                                          BoxShadow(
-                                                            color: Colors.black.withOpacity(0.10),
-                                                            blurRadius: 5,
-                                                            offset: const Offset(0, 4), // changes position of shadow
-                                                          ),
-                                                        ],
-                                                ),
-                                                child: InkWell(
-                                                    onTap: () {
-                                                      if (orderModel.status == Constant.rideComplete && orderModel.paymentStatus == true) {
-                                                        Get.to(const IntercityCompleteOrderScreen(), arguments: {
-                                                          "orderModel": orderModel,
-                                                        });
-                                                      }
-                                                    },
-                                                    child: Padding(
-                                                      padding: const EdgeInsets.all(15.0),
-                                                      child: Column(
-                                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                                        children: [
-                                                          DriverView(
-                                                            driverId: orderModel.driverId.toString(),
-                                                          ),
-                                                          const Padding(
-                                                            padding: EdgeInsets.symmetric(vertical: 4),
-                                                            child: Divider(
-                                                              thickness: 1,
-                                                            ),
-                                                          ),
-                                                          Row(
-                                                            children: [
-                                                              Container(
-                                                                decoration:
-                                                                    BoxDecoration(color: Colors.grey.withOpacity(0.30), borderRadius: const BorderRadius.all(Radius.circular(5))),
-                                                                child: Padding(
-                                                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                                                  child: Text(orderModel.paymentType.toString()),
-                                                                ),
-                                                              ),
                                                               const SizedBox(
-                                                                width: 10,
+                                                                  height: 5),
+                                                              const Divider(
+                                                                  thickness: 1),
+                                                              const SizedBox(
+                                                                  height: 5),
+                                                              Row(
+                                                                children: [
+                                                                  Expanded(
+                                                                    child: LocationView(
+                                                                      sourceLocation: orderModel.sourceLocationName?.toString() ??
+                                                                          '',
+                                                                      destinationLocation: orderModel
+                                                                              .destinationLocationName
+                                                                              ?.toString() ??
+                                                                          '',
+                                                                    ),
+                                                                  ),
+                                                                ],
                                                               ),
-                                                              Container(
-                                                                decoration: BoxDecoration(
-                                                                    color: AppColors.primary.withOpacity(0.30), borderRadius: const BorderRadius.all(Radius.circular(5))),
-                                                                child: Padding(
-                                                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                                                  child: Text(Constant.localizationName(orderModel.intercityService!.name)),
+                                                              Padding(
+                                                                padding: const EdgeInsets
+                                                                    .symmetric(
+                                                                    vertical:
+                                                                        10),
+                                                                child:
+                                                                    Container(
+                                                                  decoration: BoxDecoration(
+                                                                      color: themeChange.getThem()
+                                                                          ? AppColors
+                                                                              .darkGray
+                                                                          : AppColors
+                                                                              .gray,
+                                                                      borderRadius: const BorderRadius.all(
+                                                                          Radius.circular(
+                                                                              10))),
+                                                                  child: Padding(
+                                                                      padding: const EdgeInsets.symmetric(
+                                                                          horizontal:
+                                                                              10,
+                                                                          vertical:
+                                                                              10),
+                                                                      child:
+                                                                          Row(
+                                                                        mainAxisAlignment:
+                                                                            MainAxisAlignment.center,
+                                                                        crossAxisAlignment:
+                                                                            CrossAxisAlignment.center,
+                                                                        children: [
+                                                                          Expanded(
+                                                                            child:
+                                                                                Text(orderModel.status.toString(), style: TextStyle()),
+                                                                          ),
+                                                                          Text(
+                                                                              orderModel.createdAt ?? '',
+                                                                              style: TextStyle(fontSize: 12)),
+                                                                        ],
+                                                                      )),
                                                                 ),
                                                               ),
                                                             ],
                                                           ),
-                                                          const SizedBox(
-                                                            height: 10,
-                                                          ),
-                                                          LocationView(
-                                                            sourceLocation: orderModel.sourceLocationName.toString(),
-                                                            destinationLocation: orderModel.destinationLocationName.toString(),
-                                                          ),
-                                                          const SizedBox(
-                                                            height: 10,
-                                                          ),
-                                                          Container(
-                                                            decoration: BoxDecoration(
-                                                                color: themeChange.getThem() ? AppColors.darkGray : AppColors.gray,
-                                                                borderRadius: const BorderRadius.all(Radius.circular(10))),
-                                                            child: Padding(
-                                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                                                                child: Center(
-                                                                  child: Row(
-                                                                    children: [
-                                                                      Expanded(child: Text(orderModel.status.toString(), style: TextStyle(fontWeight: FontWeight.w600))),
-                                                                      Text(Constant().formatTimestamp(orderModel.createdDate), style: TextStyle()),
-                                                                    ],
-                                                                  ),
-                                                                )),
-                                                          ),
-                                                          const SizedBox(
-                                                            height: 10,
-                                                          ),
-                                                          Visibility(
-                                                            visible: orderModel.status == Constant.rideComplete,
-                                                            child: Row(
-                                                              children: [
-                                                                Expanded(
-                                                                  child: ButtonThem.buildButton(
-                                                                    context,
-                                                                    title: "Review".tr,
-                                                                    btnHeight: 44,
-                                                                    onPress: () async {
-                                                                      Get.to(const ReviewScreen(), arguments: {
-                                                                        "type": "interCityOrderModel",
-                                                                        "interCityOrderModel": orderModel,
-                                                                      });
-                                                                    },
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          )
-                                                        ],
-                                                      ),
-                                                    )),
-                                              ),
-                                            );
-                                          });
-                                },
-                              ),
-                              StreamBuilder<QuerySnapshot>(
-                                stream: FirebaseFirestore.instance
-                                    .collection(CollectionName.ordersIntercity)
-                                    .where("userId", isEqualTo: FireStoreUtils.getCurrentUid())
-                                    .where("status", isEqualTo: Constant.rideCanceled)
-                                    .orderBy("createdDate", descending: true)
-                                    .snapshots(),
-                                builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
-                                  if (snapshot.hasError) {
-                                    return Center(child: Text('Something went wrong'.tr));
-                                  }
-                                  if (snapshot.connectionState == ConnectionState.waiting) {
-                                    return Constant.loader();
-                                  }
-                                  return snapshot.data!.docs.isEmpty
-                                      ? Center(
-                                          child: Text("No completed rides Found".tr),
-                                        )
-                                      : ListView.builder(
-                                          itemCount: snapshot.data!.docs.length,
-                                          scrollDirection: Axis.vertical,
-                                          shrinkWrap: true,
-                                          itemBuilder: (context, index) {
-                                            InterCityOrderModel orderModel = InterCityOrderModel.fromJson(snapshot.data!.docs[index].data() as Map<String, dynamic>);
-                                            return Padding(
-                                              padding: const EdgeInsets.all(10),
-                                              child: Container(
-                                                decoration: BoxDecoration(
-                                                  color: themeChange.getThem() ? AppColors.darkContainerBackground : AppColors.containerBackground,
-                                                  borderRadius: const BorderRadius.all(Radius.circular(10)),
-                                                  border: Border.all(color: themeChange.getThem() ? AppColors.darkContainerBorder : AppColors.containerBorder, width: 0.5),
-                                                  boxShadow: themeChange.getThem()
-                                                      ? null
-                                                      : [
-                                                          BoxShadow(
-                                                            color: Colors.black.withOpacity(0.10),
-                                                            blurRadius: 5,
-                                                            offset: const Offset(0, 4), // changes position of shadow
-                                                          ),
-                                                        ],
-                                                ),
-                                                child: Padding(
-                                                  padding: const EdgeInsets.all(12.0),
-                                                  child: Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                    children: [
-                                                      orderModel.status == Constant.rideComplete || orderModel.status == Constant.rideActive
-                                                          ? const SizedBox()
-                                                          : Row(
-                                                              children: [
-                                                                Expanded(
-                                                                  child: Text(
-                                                                    orderModel.status.toString(),
-                                                                    style: TextStyle(fontWeight: FontWeight.w500),
-                                                                  ),
-                                                                ),
-                                                                Text(
-                                                                  Constant.amountShow(
-                                                                      amount:
-                                                                          double.parse(orderModel.offerRate.toString()).toStringAsFixed(Constant.currencyModel!.decimalDigits!)),
-                                                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                      const SizedBox(
-                                                        height: 10,
-                                                      ),
-                                                      Row(
-                                                        children: [
-                                                          Container(
-                                                            decoration:
-                                                                BoxDecoration(color: Colors.grey.withOpacity(0.30), borderRadius: const BorderRadius.all(Radius.circular(5))),
-                                                            child: Padding(
-                                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                                              child: Text(orderModel.paymentType.toString()),
-                                                            ),
-                                                          ),
-                                                          const SizedBox(
-                                                            width: 10,
-                                                          ),
-                                                          Container(
-                                                            decoration:
-                                                                BoxDecoration(color: AppColors.primary.withOpacity(0.30), borderRadius: const BorderRadius.all(Radius.circular(5))),
-                                                            child: Padding(
-                                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                                              child: Text(Constant.localizationName(orderModel.intercityService!.name)),
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                      const SizedBox(
-                                                        height: 10,
-                                                      ),
-                                                      LocationView(
-                                                        sourceLocation: orderModel.sourceLocationName.toString(),
-                                                        destinationLocation: orderModel.destinationLocationName.toString(),
-                                                      ),
-                                                      Padding(
-                                                        padding: const EdgeInsets.symmetric(vertical: 14),
-                                                        child: Container(
-                                                          decoration: BoxDecoration(
-                                                              color: themeChange.getThem() ? AppColors.darkGray : AppColors.gray,
-                                                              borderRadius: const BorderRadius.all(Radius.circular(10))),
-                                                          child: Padding(
-                                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                                                              child: Row(
-                                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                                crossAxisAlignment: CrossAxisAlignment.center,
-                                                                children: [
-                                                                  Expanded(child: Text(orderModel.status.toString())),
-                                                                  Text(Constant().formatTimestamp(orderModel.createdDate), style: TextStyle(fontSize: 12)),
-                                                                ],
-                                                              )),
                                                         ),
                                                       ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                            );
-                                          });
-                                },
+                                                    ),
+                                                  );
+                                                }),
+                                    // Completed Orders from API
+                                    controller.isLoadingCompleted.value
+                                        ? Center(child: Constant.loader())
+                                        : controller.completedOrders.isEmpty
+                                            ? Center(
+                                                child: Text(
+                                                    "No completed rides found"
+                                                        .tr))
+                                            : ListView.builder(
+                                                itemCount: controller
+                                                    .completedOrders.length,
+                                                scrollDirection: Axis.vertical,
+                                                shrinkWrap: true,
+                                                itemBuilder: (context, index) {
+                                                  InterCityOrderModel
+                                                      orderModel = controller
+                                                              .completedOrders[
+                                                          index];
+                                                  return Padding(
+                                                    padding:
+                                                        const EdgeInsets.all(
+                                                            10),
+                                                    child: Container(
+                                                      decoration: BoxDecoration(
+                                                        color: themeChange
+                                                                .getThem()
+                                                            ? AppColors
+                                                                .darkContainerBackground
+                                                            : AppColors
+                                                                .containerBackground,
+                                                        borderRadius:
+                                                            const BorderRadius
+                                                                .all(Radius
+                                                                    .circular(
+                                                                        10)),
+                                                        border: Border.all(
+                                                            color: themeChange
+                                                                    .getThem()
+                                                                ? AppColors
+                                                                    .darkContainerBorder
+                                                                : AppColors
+                                                                    .containerBorder,
+                                                            width: 0.5),
+                                                        boxShadow: themeChange
+                                                                .getThem()
+                                                            ? null
+                                                            : [
+                                                                BoxShadow(
+                                                                  color: Colors
+                                                                      .black
+                                                                      .withOpacity(
+                                                                          0.10),
+                                                                  blurRadius: 5,
+                                                                  offset:
+                                                                      const Offset(
+                                                                          0, 4),
+                                                                ),
+                                                              ],
+                                                      ),
+                                                      child: InkWell(
+                                                          onTap: () {
+                                                            Get.to(
+                                                                IntercityCompleteOrderScreen(),
+                                                                arguments: {
+                                                                  "orderModel":
+                                                                      orderModel,
+                                                                });
+                                                          },
+                                                          child: Padding(
+                                                            padding:
+                                                                const EdgeInsets
+                                                                    .all(12.0),
+                                                            child: Column(
+                                                              crossAxisAlignment:
+                                                                  CrossAxisAlignment
+                                                                      .start,
+                                                              children: [
+                                                                Row(
+                                                                  children: [
+                                                                    Expanded(
+                                                                      child:
+                                                                          Text(
+                                                                        orderModel.status?.toString() ??
+                                                                            '',
+                                                                        style: TextStyle(
+                                                                            fontWeight:
+                                                                                FontWeight.w600),
+                                                                      ),
+                                                                    ),
+                                                                    Text(
+                                                                      "\$ ${orderModel.finalRate ?? orderModel.offerRate ?? '0'}",
+                                                                      style:
+                                                                          TextStyle(
+                                                                        fontSize:
+                                                                            18,
+                                                                        fontWeight:
+                                                                            FontWeight.w800,
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                                const Padding(
+                                                                  padding: EdgeInsets
+                                                                      .symmetric(
+                                                                          vertical:
+                                                                              4),
+                                                                  child: Divider(
+                                                                      thickness:
+                                                                          1),
+                                                                ),
+                                                                LocationView(
+                                                                  sourceLocation:
+                                                                      orderModel
+                                                                              .sourceLocationName
+                                                                              ?.toString() ??
+                                                                          '',
+                                                                  destinationLocation:
+                                                                      orderModel
+                                                                              .destinationLocationName
+                                                                              ?.toString() ??
+                                                                          '',
+                                                                ),
+                                                                Padding(
+                                                                  padding: const EdgeInsets
+                                                                      .symmetric(
+                                                                      vertical:
+                                                                          14),
+                                                                  child:
+                                                                      Container(
+                                                                    decoration: BoxDecoration(
+                                                                        color: themeChange.getThem()
+                                                                            ? AppColors
+                                                                                .darkGray
+                                                                            : AppColors
+                                                                                .gray,
+                                                                        borderRadius: const BorderRadius.all(
+                                                                            Radius.circular(10))),
+                                                                    child: Padding(
+                                                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                                                                        child: Center(
+                                                                          child:
+                                                                              Row(
+                                                                            children: [
+                                                                              Expanded(child: Text(orderModel.status.toString(), style: TextStyle(fontWeight: FontWeight.w500))),
+                                                                              Text(orderModel.createdAt ?? '', style: TextStyle()),
+                                                                            ],
+                                                                          ),
+                                                                        )),
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          )),
+                                                    ),
+                                                  );
+                                                }),
+                                    // Cancelled Orders from API
+                                    controller.isLoadingCancelled.value
+                                        ? Center(child: Constant.loader())
+                                        : controller.cancelledOrders.isEmpty
+                                            ? Center(
+                                                child: Text(
+                                                    "No cancelled rides found"
+                                                        .tr))
+                                            : ListView.builder(
+                                                itemCount: controller
+                                                    .cancelledOrders.length,
+                                                scrollDirection: Axis.vertical,
+                                                shrinkWrap: true,
+                                                itemBuilder: (context, index) {
+                                                  InterCityOrderModel
+                                                      orderModel = controller
+                                                              .cancelledOrders[
+                                                          index];
+                                                  return Padding(
+                                                    padding:
+                                                        const EdgeInsets.all(
+                                                            10),
+                                                    child: Container(
+                                                      decoration: BoxDecoration(
+                                                        color: themeChange
+                                                                .getThem()
+                                                            ? AppColors
+                                                                .darkContainerBackground
+                                                            : AppColors
+                                                                .containerBackground,
+                                                        borderRadius:
+                                                            const BorderRadius
+                                                                .all(Radius
+                                                                    .circular(
+                                                                        10)),
+                                                        border: Border.all(
+                                                            color: themeChange
+                                                                    .getThem()
+                                                                ? AppColors
+                                                                    .darkContainerBorder
+                                                                : AppColors
+                                                                    .containerBorder,
+                                                            width: 0.5),
+                                                        boxShadow: themeChange
+                                                                .getThem()
+                                                            ? null
+                                                            : [
+                                                                BoxShadow(
+                                                                  color: Colors
+                                                                      .black
+                                                                      .withOpacity(
+                                                                          0.10),
+                                                                  blurRadius: 5,
+                                                                  offset:
+                                                                      const Offset(
+                                                                          0, 4),
+                                                                ),
+                                                              ],
+                                                      ),
+                                                      child: InkWell(
+                                                          onTap: () {
+                                                            Get.to(
+                                                                IntercityCompleteOrderScreen(),
+                                                                arguments: {
+                                                                  "orderModel":
+                                                                      orderModel,
+                                                                });
+                                                          },
+                                                          child: Padding(
+                                                            padding:
+                                                                const EdgeInsets
+                                                                    .all(12.0),
+                                                            child: Column(
+                                                              crossAxisAlignment:
+                                                                  CrossAxisAlignment
+                                                                      .start,
+                                                              children: [
+                                                                Row(
+                                                                  children: [
+                                                                    Expanded(
+                                                                      child:
+                                                                          Text(
+                                                                        orderModel.status?.toString() ??
+                                                                            '',
+                                                                        style: TextStyle(
+                                                                            fontWeight:
+                                                                                FontWeight.w600,
+                                                                            color:
+                                                                                Colors.red),
+                                                                      ),
+                                                                    ),
+                                                                    Text(
+                                                                      "\$ ${orderModel.offerRate ?? '0'}",
+                                                                      style:
+                                                                          TextStyle(
+                                                                        fontSize:
+                                                                            18,
+                                                                        fontWeight:
+                                                                            FontWeight.w800,
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                                const Padding(
+                                                                  padding: EdgeInsets
+                                                                      .symmetric(
+                                                                          vertical:
+                                                                              4),
+                                                                  child: Divider(
+                                                                      thickness:
+                                                                          1),
+                                                                ),
+                                                                LocationView(
+                                                                  sourceLocation:
+                                                                      orderModel
+                                                                              .sourceLocationName
+                                                                              ?.toString() ??
+                                                                          '',
+                                                                  destinationLocation:
+                                                                      orderModel
+                                                                              .destinationLocationName
+                                                                              ?.toString() ??
+                                                                          '',
+                                                                ),
+                                                                Padding(
+                                                                  padding: const EdgeInsets
+                                                                      .symmetric(
+                                                                      vertical:
+                                                                          14),
+                                                                  child:
+                                                                      Container(
+                                                                    decoration: BoxDecoration(
+                                                                        color: themeChange.getThem()
+                                                                            ? AppColors
+                                                                                .darkGray
+                                                                            : AppColors
+                                                                                .gray,
+                                                                        borderRadius: const BorderRadius.all(
+                                                                            Radius.circular(10))),
+                                                                    child: Padding(
+                                                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                                                                        child: Center(
+                                                                          child:
+                                                                              Row(
+                                                                            children: [
+                                                                              Expanded(child: Text(orderModel.status.toString(), style: TextStyle(fontWeight: FontWeight.w500))),
+                                                                              Text(orderModel.createdAt ?? '', style: TextStyle()),
+                                                                            ],
+                                                                          ),
+                                                                        )),
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          )),
+                                                    ),
+                                                  );
+                                                }),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
-                        )
-                      ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
+              ],
             ),
-          ),
-        ],
-      ),
-    );
+          );
+        });
   }
 }

@@ -11,6 +11,7 @@ import 'package:customer/ui/profile_screen/profile_screen.dart';
 import 'package:customer/ui/referral_screen/referral_screen.dart';
 import 'package:customer/ui/settings_screen/setting_screen.dart';
 import 'package:customer/ui/wallet/wallet_screen.dart';
+import 'package:customer/controller/order_screen_controller.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -39,7 +40,7 @@ class DashBoardController extends GetxController {
       case 1:
         return const InterCityScreen();
       case 2:
-        return const OrderScreen(); // Real order screen for rides
+        return OrderScreen(key: ValueKey('order_${DateTime.now().millisecondsSinceEpoch}')); // Force new instance every time
       case 3:
         return const InterCityOrderScreen(); // Real intercity order screen
       case 4:
@@ -63,8 +64,8 @@ class DashBoardController extends GetxController {
 
   @override
   void onInit() {
-    // TODO: implement onInit
     super.onInit();
+    // OrderScreen now handles its own refresh via initState
   }
 
   RxInt selectedDrawerIndex = 0.obs;

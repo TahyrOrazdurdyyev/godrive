@@ -356,6 +356,23 @@ class HomeController extends GetxController {
   }
 
   calculateAmount() async {
+    // 🎯 AUCTION SYSTEM - NO AUTOMATIC PRICE CALCULATION
+    // Client enters their own price in "Offer Your Rate" field
+    
+    // Skip all calculations for auction system
+    // Just set amount to "0.00" as placeholder
+    amount.value = "0.00";
+    
+    print('🎯 Auction mode: Skipping price calculation');
+    print('🎯 Distance: ${distance.value} km');
+    print('🎯 Duration: ${duration.value}');
+    
+    // Old calculation code removed for auction system
+    // Client will enter their offer price manually
+    return;
+    
+    /*
+    // OLD CODE - REMOVED FOR AUCTION SYSTEM
     acCharge.value = selectedType.value.acCharge.toString();
     nonAcCharge.value = selectedType.value.nonAcCharge.toString();
     basicFare.value = selectedType.value.basicFare.toString();
@@ -382,42 +399,9 @@ class HomeController extends GetxController {
     nightCharge.value = selectedType.value.nightCharge.toString();
     if (sourceLocationLAtLng.value.latitude != null && destinationLocationLAtLng.value.latitude != null) {
       double durationValueInMinutes = convertToMinutes(duration.toString());
-      if (double.parse(distance.value) <= double.parse(basicFare.value)) {
-        amount.value =
-            ((double.parse(basicFareCharge.value.toString())) + (double.parse(durationValueInMinutes.toString()) * double.parse(selectedType.value.perMinuteCharge.toString())))
-                .toStringAsFixed(Constant.currencyModel!.decimalDigits!);
-
-        totalNightFare.value = double.parse(amount.value);
-        if (currentTime.isAfter(startNightTimeString) && currentTime.isBefore(endNightTimeString)) {
-          amount.value = (totalNightFare.value * double.parse(nightCharge.value.toString())).toStringAsFixed(2);
-        }
-      } else {
-        double distanceValue = double.tryParse(distance.value) ?? 0.0;
-        double basicFareValue = double.tryParse(basicFare.value) ?? 0.0;
-        double extraDist = distanceValue - basicFareValue;
-        extraDistance.value = extraDist;
-        double nonAcChargeValue = double.tryParse(nonAcCharge.value.toString()) ?? 0.0;
-        double acChargeValue = double.tryParse(acCharge.value.toString()) ?? 0.0;
-        double perKmCharge = isAcNonAc.value == true
-            ? isAcSelected.value == false
-                ? nonAcChargeValue
-                : acChargeValue
-            : double.tryParse(selectedType.value.kmCharge.toString()) ?? 0.0;
-        double perMinuteCharge = double.tryParse(selectedType.value.perMinuteCharge.toString()) ?? 0.0;
-        double durationInMinutes = double.tryParse(durationValueInMinutes.toString()) ?? 0.0;
-        double basicFareChargeValue = double.tryParse(basicFareCharge.value.toString()) ?? 0.0;
-        totalAmount.value = (perKmCharge * extraDist) + (durationInMinutes * perMinuteCharge) + basicFareChargeValue;
-
-        totalNightFare.value = totalAmount.value;
-        amount.value = totalNightFare.value.toStringAsFixed(2);
-
-        if (currentTime.isAfter(startNightTimeString) && currentTime.isBefore(endNightTimeString)) {
-          amount.value = (totalNightFare.value * double.parse(nightCharge.value.toString())).toStringAsFixed(2);
-        }
-      }
-      offerYourRateController.value.text = amount.value;
-    }
-    update();
+      if (double.tryParse(distance.value) != null && double.tryParse(basicFare.value) != null && 
+          double.parse(distance.value) <= double.parse(basicFare.value)) {
+    */
   }
 
   Rx<PaymentModel> paymentModel = PaymentModel().obs;
